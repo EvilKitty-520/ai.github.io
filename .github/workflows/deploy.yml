@@ -1,0 +1,21 @@
+name: Deploy with Password
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inject password
+        run: |
+          sed -i "s/{{ secrets.ACCESS_PASSWORD }}/${{ secrets.ACCESS_PASSWORD }}/g" index.html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
