@@ -7,6 +7,67 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        /* 密码锁样式 */
+        .password-lock {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #eaf9e6 0%, #cde8cd 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 99999;
+        }
+        .password-card {
+            background: white;
+            border-radius: 2rem;
+            padding: 2.5rem;
+            box-shadow: 0 25px 40px -12px rgba(30, 60, 20, 0.3);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .password-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #2e7d32;
+            margin-bottom: 1.5rem;
+        }
+        .password-input {
+            width: 100%;
+            padding: 1rem 1.2rem;
+            border: 2px solid #d2e8cb;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        .password-btn {
+            background: #2f6b2f;
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 0.8rem 2rem;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 1.1rem;
+            width: 100%;
+        }
+        .password-btn:hover {
+            background: #1e4f1e;
+            transform: scale(0.98);
+        }
+        .password-error {
+            color: #e74c3c;
+            margin-bottom: 1rem;
+            font-weight: 500;
+            display: none;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #eaf9e6 0%, #cde8cd 100%); color: #1c3a2a; padding: 1.5rem; min-height: 100vh; }
         .main-container { max-width: 1400px; margin: 0 auto; background: rgba(255, 255, 245, 0.75); backdrop-filter: blur(3px); border-radius: 2rem; box-shadow: 0 25px 40px -12px rgba(30, 60, 20, 0.3); padding: 1.5rem 2rem; }
@@ -168,6 +229,16 @@
 </head>
 
 <body>
+    <!-- 密码锁弹窗 -->
+    <div class="password-lock" id="passwordLock">
+        <div class="password-card">
+            <h2 class="password-title">🔒 家庭点餐系统</h2>
+            <div class="password-error" id="passwordError">密码错误，请重试</div>
+            <input type="password" class="password-input" id="passwordInput" placeholder="请输入访问密码">
+            <button class="password-btn" id="passwordSubmit">验证密码</button>
+        </div>
+    </div>
+
     <div id="toast" class="toast-notice"></div>
 
     <!-- 悬浮按钮（仅点餐页） -->
@@ -272,6 +343,71 @@
     </div>
 
     <script>
+        // ===== 密码锁核心逻辑 =====
+        // 请修改这里的密码为你想要的密码
+        const ACCESS_PASSWORD = "123456520"; // 建议修改为更复杂的密码
+        
+        // 密码验证函数
+        function verifyPassword() {
+            const passwordInput = document.getElementById('passwordInput');
+            const passwordError = document.getElementById('passwordError');
+            const passwordLock = document.getElementById('passwordLock');
+            
+            const inputValue = passwordInput.value.trim();
+            
+            if (inputValue === ACCESS_PASSWORD) {
+                // 密码正确，隐藏密码锁，显示内容
+                passwordLock.style.display = 'none';
+                // 可选：保存登录状态，刷新页面不需要重新输入
+                localStorage.setItem('hasAccess', 'true');
+                showToast('验证成功，欢迎使用！', 'success');
+            } else {
+                // 密码错误，显示错误提示
+                passwordError.style.display = 'block';
+                passwordInput.value = '';
+                // 震动效果
+                passwordCard.style.animation = 'shake 0.5s';
+                setTimeout(() => {
+                    passwordCard.style.animation = '';
+                }, 500);
+            }
+        }
+
+        // 检查是否已经登录过
+        document.addEventListener('DOMContentLoaded', function() {
+            const hasAccess = localStorage.getItem('hasAccess');
+            const passwordLock = document.getElementById('passwordLock');
+            
+            // 如果已经登录过，直接隐藏密码锁
+            if (hasAccess === 'true') {
+                passwordLock.style.display = 'none';
+            }
+
+            // 密码提交按钮事件
+            document.getElementById('passwordSubmit').addEventListener('click', verifyPassword);
+            
+            // 按回车键验证密码
+            document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    verifyPassword();
+                }
+            });
+
+            // 添加震动动画样式
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    20% { transform: translateX(-8px); }
+                    40% { transform: translateX(8px); }
+                    60% { transform: translateX(-4px); }
+                    80% { transform: translateX(4px); }
+                }
+            `;
+            document.head.appendChild(style);
+        });
+
+        // ===== 原有功能代码 =====
         // 提醒
         function showToast(message, type = "info") {
             const t = document.getElementById("toast");
