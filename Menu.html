@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>家庭点餐系统 · 待办 + 心愿 · 实时同步</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #eaf9e6 0%, #cde8cd 100%); color: #1c3a2a; padding: 1.5rem; min-height: 100vh; }
+        .main-container { max-width: 1400px; margin: 0 auto; background: rgba(255, 255, 245, 0.75); backdrop-filter: blur(3px); border-radius: 2rem; box-shadow: 0 25px 40px -12px rgba(30, 60, 20, 0.3); padding: 1.5rem 2rem; }
+        .header-panel { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 2rem; padding-bottom: 0.8rem; border-bottom: 2px solid #a8d5a2; }
+        .date-badge { background: #f1faea; padding: 0.5rem 1.2rem; border-radius: 48px; font-weight: 600; font-size: 1.2rem; color: #2b6236; }
+        .date-badge span { background: #cbe5c4; padding: 0.2rem 0.8rem; border-radius: 30px; margin-left: 0.6rem; font-size: 0.9rem; }
+        .order-config { display: flex; flex-wrap: wrap; gap: 1.2rem; background: #ecf7e7; padding: 0.5rem 1.3rem; border-radius: 60px; align-items: center; }
+        .config-item { display: flex; align-items: center; gap: 0.5rem; }
+        .radio-group { display: flex; gap: 1rem; }
+        button { background: #2f6b2f; border: none; color: white; font-weight: 600; padding: 0.5rem 1.4rem; border-radius: 40px; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #1e4f1e; transform: scale(0.96); }
+
+        /* 主菜单 Tab */
+        .main-tabs { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .main-tab { background: #e0f1db; padding: 0.6rem 1.6rem; border-radius: 40px; font-weight: 600; cursor: pointer; }
+        .main-tab.active { background: #2e7d32; color: white; }
+
+        /* 页面模块 */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .category-tabs { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: 1.2rem 0 1.8rem 0; border-bottom: 1px solid #c2e0bc; padding-bottom: 0.6rem; }
+        .cat-btn { background: #e0f1db; padding: 0.5rem 1.5rem; border-radius: 40px; font-weight: 600; cursor: pointer; color: #2a5a2a; }
+        .cat-btn.active { background: #2e7d32; color: white; }
+        .dishes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .dish-card { background: white; border-radius: 1.5rem; padding: 1.2rem; box-shadow: 0 8px 18px rgba(50, 70, 30, 0.08); border: 1px solid #d2e8cb; }
+        .dish-name { font-size: 1.25rem; font-weight: 700; color: #215c2e; }
+        .rating { background: #fef4e0; padding: 0.2rem 0.6rem; border-radius: 30px; font-size: 0.7rem; display: inline-block; }
+        .checkbox-area { margin: 0.7rem 0; display: flex; align-items: center; gap: 0.6rem; }
+        .checkbox-area input { width: 1.2rem; height: 1.2rem; accent-color: #2e7d32; }
+        .detail-btn { background: #eff7ea; border: none; padding: 0.3rem 0.9rem; border-radius: 30px; font-size: 0.75rem; cursor: pointer; }
+        .submit-wrap { display: none; }
+        .submit-main { font-size: 1.2rem; padding: 0.75rem 2.5rem; }
+
+        /* 待办 & 心愿 样式 */
+        .list-container { background: white; border-radius: 1.5rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .list-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; color: #2e7d32; }
+        .list-input-area { display: flex; gap: 0.8rem; margin-bottom: 1rem; }
+        .list-input { flex: 1; padding: 0.8rem 1.2rem; border: 1px solid #d2e8cb; border-radius: 12px; font-size: 1rem; }
+        .list-submit-btn { background: #2e7d32; white-space: nowrap; }
+        .list-items { max-height: 400px; overflow-y: auto; }
+        
+        .list-item {
+            background: #f6fcef;
+            padding: 0.9rem 1.2rem;
+            border-radius: 12px;
+            margin-bottom: 0.6rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 0.8rem;
+        }
+        .list-item.completed {
+            background: #f0f0f0;
+            color: #888;
+        }
+        .list-item.completed .list-item-text {
+            text-decoration: line-through;
+        }
+        .list-item-left {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            flex: 1;
+        }
+        .list-item-checkbox {
+            width: 1.1rem;
+            height: 1.1rem;
+            accent-color: #2e7d32;
+            margin-top: 0.15rem;
+        }
+        .list-item-actions {
+            display: flex;
+            gap: 0.4rem;
+            flex-shrink: 0;
+        }
+        .list-item-edit {
+            background: #3498db;
+            padding: 0.4rem 0.6rem;
+            font-size: 0.8rem;
+        }
+        .list-item-delete {
+            background: #e74c3c;
+            padding: 0.4rem 0.6rem;
+            font-size: 0.8rem;
+        }
+        .list-item-meta {
+            font-size: 0.7rem;
+            color: #666;
+            margin-top: 0.3rem;
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }
+        .list-item-remark {
+            font-size: 0.75rem;
+            color: #555;
+            margin-top: 0.4rem;
+            padding: 0.4rem 0.6rem;
+            background: #e8f5e9;
+            border-radius: 8px;
+        }
+        .list-item-remark-meta {
+            font-size: 0.65rem;
+            color: #777;
+            margin-top: 0.2rem;
+            display: flex;
+            gap: 0.6rem;
+        }
+
+        /* 编辑弹窗 */
+        .cool-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(30, 50, 20, 0.6); backdrop-filter: blur(8px); justify-content: center; align-items: center; z-index: 2000; }
+        .cool-modal-card { background: white; border-radius: 2rem; width: 90%; max-width: 500px; padding: 1.8rem; border-top: 8px solid #5fb05b; }
+        .modal-title { font-size: 1.3rem; font-weight: 700; color: #2e7d32; margin-bottom: 1rem; }
+        .modal-form-group { margin-bottom: 1rem; }
+        .modal-form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
+        .modal-form-input, .modal-form-textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #d2e8cb;
+            border-radius: 12px;
+            font-size: 1rem;
+        }
+        .modal-form-textarea { min-height: 80px; resize: vertical; }
+        .selected-dishes-list { background: #f6fcef; border-radius: 1.2rem; padding: 1rem; margin: 1rem 0; max-height: 240px; overflow-y: auto; }
+        .modal-actions { display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem; }
+
+        /* 悬浮按钮（仅点餐页） */
+        .floating-submit { position: fixed; bottom: 24px; right: 24px; z-index: 9999; background: #2e7d32; color: white; border-radius: 50px; padding: 14px 18px; font-size: 14px; font-weight: 600; box-shadow: 0 8px 20px rgba(46, 125, 50, 0.3); cursor: pointer; transition: all 0.25s ease; white-space: nowrap; overflow: hidden; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; }
+        .floating-submit:hover { width: 180px; background: #1e5622; transform: translateY(-3px); box-shadow: 0 12px 24px rgba(46, 125, 50, 0.4); }
+        .floating-submit .icon { font-size: 22px; }
+        .floating-submit .text { display: none; margin-left: 8px; }
+        .floating-submit:hover .text { display: inline; }
+
+        /* 历史面板（仅点餐页） */
+        .history-float { position: fixed; bottom: 1.5rem; right: 1.5rem; width: 320px; background: #ffffffdd; backdrop-filter: blur(12px); border-radius: 1.5rem; box-shadow: 0 12px 28px rgba(0,0,0,0.15); z-index: 1000; margin-bottom:80px; }
+        .float-header { background: #39873e; color: white; padding: 0.8rem 1rem; border-radius: 1.5rem 1.5rem 0 0; display: flex; justify-content: space-between; cursor: pointer; }
+        .float-content { max-height: 350px; overflow-y: auto; padding: 0.8rem; transition: max-height 0.25s; }
+        .float-content.collapsed { max-height: 0; padding: 0; overflow: hidden; }
+        .record-item-mini { background: #f9fff7; border-radius: 1rem; padding: 0.6rem; margin-bottom: 0.7rem; border-left: 4px solid #6fbc6f; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center; }
+        .record-header-mini { font-weight: 700; display: flex; justify-content: space-between; margin-bottom: 0.2rem; }
+        .sync-status { font-size: 0.7rem; background: #e9f3e4; border-radius: 20px; padding: 0.2rem 0.6rem; display: inline-flex; align-items: center; gap: 4px; }
+        footer { text-align: center; margin-top: 1rem; font-size: 0.7rem; color: #548a54; }
+
+        .delete-record-btn { background: #e74c3c; border: none; color: white; font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 20px; cursor: pointer; margin-left: 0.5rem; }
+        .delete-record-btn:hover { background: #c0392b; transform: none; }
+        .season-tag { background: #fdf2e8; color: #e67e22; padding: 0.1rem 0.5rem; border-radius: 20px; font-size: 0.65rem; display: inline-block; margin-left: 0.5rem; }
+
+        /* 提醒条 */
+        .toast-notice { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 10px 18px; border-radius: 50px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); font-size: 0.9rem; font-weight: 500; z-index: 9999; opacity: 0; transition: all 0.3s ease; white-space: nowrap; }
+        .toast-notice.show { opacity: 1; top: 30px; }
+        .toast-success { border-left: 5px solid #2e7d32; color: #2e7d32; }
+        .toast-warning { border-left: 5px solid #f39c12; color: #b36a00; }
+        .toast-error { border-left: 5px solid #e74c3c; color: #c0392b; }
+        .toast-info { border-left: 5px solid #3498db; color: #2980b9; }
+
+        @media (max-width: 680px) { .main-container { padding: 1rem; } .history-float { width: 280px; } }
+    </style>
+</head>
+
+<body>
+    <div id="toast" class="toast-notice"></div>
+
+    <!-- 悬浮按钮（仅点餐页） -->
+    <div class="floating-submit" id="floatSubmitBtn">
+        <span class="icon">✨</span>
+        <span class="text">确认点餐</span>
+    </div>
+
+    <div class="main-container">
+        <div class="header-panel">
+            <div class="date-badge" id="currentDateDisplay"></div>
+            <div class="order-config">
+                <div class="config-item"><span>🍽️ 执箸人：</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="diner" value="喵呜" checked> 喵呜</label>
+                        <label><input type="radio" name="diner" value="蜀黍"> 蜀黍</label>
+                    </div>
+                </div>
+                <div class="config-item"><label>📅 日期：</label><input type="date" id="orderDate"></div>
+                <div class="sync-status" id="syncStatus">🔌 连接中...</div>
+            </div>
+        </div>
+
+        <!-- 顶部主菜单 -->
+        <div class="main-tabs">
+            <div class="main-tab active" data-page="order">🍽️ 点餐系统</div>
+            <div class="main-tab" data-page="todo">📋 见面待办 list</div>
+            <div class="main-tab" data-page="wish">🎁 心愿池 list</div>
+        </div>
+
+        <!-- 点餐页面 -->
+        <div id="page-order" class="page active">
+            <div class="category-tabs" id="categoryBar"></div>
+            <div class="dishes-grid" id="dishesGrid"></div>
+            <div class="submit-wrap"><button class="submit-main" id="submitOrderBtn">✨ 确认点餐 ✨</button></div>
+        </div>
+
+        <!-- 待办页面 -->
+        <div id="page-todo" class="page">
+            <div class="list-container">
+                <div class="list-title">📋 见面待办 List</div>
+                <div class="list-input-area">
+                    <input type="text" class="list-input" id="todoInput" placeholder="输入待办事项…">
+                    <button class="list-submit-btn" id="todoSubmit">✅ 上传待办</button>
+                </div>
+                <div class="list-items" id="todoList"></div>
+            </div>
+        </div>
+
+        <!-- 心愿页面 -->
+        <div id="page-wish" class="page">
+            <div class="list-container">
+                <div class="list-title">🎁 心愿池 List</div>
+                <div class="list-input-area">
+                    <input type="text" class="list-input" id="wishInput" placeholder="输入心愿…">
+                    <button class="list-submit-btn" id="wishSubmit">✅ 上传心愿</button>
+                </div>
+                <div class="list-items" id="wishList"></div>
+            </div>
+        </div>
+
+        <footer>🌱 食光共度 · 待办 + 心愿 · Supabase 实时同步</footer>
+    </div>
+
+    <!-- 历史记录（仅点餐页） -->
+    <div class="history-float" id="historyFloat">
+        <div class="float-header" id="floatHeader"><span>📋 当月点单记录</span><span class="toggle-icon" id="toggleFloatIcon">▼</span></div>
+        <div class="float-content" id="floatContent"><div id="floatRecordList">加载中…</div><button id="refreshFloatBtn" style="width:100%;margin-top:0.5rem;">🔄 刷新</button></div>
+    </div>
+
+    <!-- 点餐确认弹窗 -->
+    <div id="coolConfirmModal" class="cool-modal">
+        <div class="cool-modal-card">
+            <h3>✨ 美味确认单</h3>
+            <div id="confirmDishesList" class="selected-dishes-list"></div>
+            <div class="modal-actions">
+                <button id="cancelConfirmBtn" style="background:#b0b9a8;">再想想</button>
+                <button id="proceedConfirmBtn" style="background:#2f6b2f;">确认点餐</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑 & 备注 弹窗 -->
+    <div id="editModal" class="cool-modal">
+        <div class="cool-modal-card">
+            <h3 class="modal-title">📝 编辑内容</h3>
+            <div class="modal-form-group">
+                <label>内容</label>
+                <input type="text" id="editContent" class="modal-form-input">
+            </div>
+            <div class="modal-form-group">
+                <label>备注（可选）</label>
+                <textarea id="editRemark" class="modal-form-textarea" placeholder="添加备注信息…"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button id="cancelEdit" style="background:#999;">取消</button>
+                <button id="saveEdit" style="background:#2e7d32;">保存</button>
+            </div>
+            <input type="hidden" id="editId">
+            <input type="hidden" id="editType">
+        </div>
+    </div>
+
+    <script>
+        // 提醒
+        function showToast(message, type = "info") {
+            const t = document.getElementById("toast");
+            t.className = "toast-notice show";
+            t.classList.add(`toast-${type}`);
+            t.innerText = message;
+            setTimeout(()=>t.classList.remove("show"), 2200);
+        }
+
+        // 获取当前选中的人（点餐/添加通用）
+        function getCurrentUser(){
+            return document.querySelector("input[name=diner]:checked").value;
+        }
+
+        // 格式化日期 YYYY-MM-DD
+        function formatDate(d){
+            if(!d) return "";
+            return new Date(d).toISOString().slice(0,10);
+        }
+
+        // Supabase 初始化（避免重复声明）
+        const SUPABASE_URL = "https://drstvonqjhsuyjifdkdo.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_chEfTEK_OGx2pHHHmBu9Cw_ar-voZYx";
+        let supabaseClient;
+        if (window.supabase) {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } else {
+            console.error("Supabase SDK 未加载");
+        }
+
+        // 页面切换 + 控制历史/悬浮按钮显示
+        document.querySelectorAll(".main-tab").forEach(tab => {
+            tab.onclick = () => {
+                document.querySelectorAll(".main-tab").forEach(t => t.classList.remove("active"));
+                document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+                tab.classList.add("active");
+                const page = tab.dataset.page;
+                document.getElementById(`page-${page}`).classList.add("active");
+                
+                // 只在点餐页面显示 悬浮按钮 + 历史记录
+                const floatBtn = document.getElementById("floatSubmitBtn");
+                const historyPanel = document.getElementById("historyFloat");
+                if(page === "order"){
+                    floatBtn.style.display = "flex";
+                    historyPanel.style.display = "block";
+                } else {
+                    floatBtn.style.display = "none";
+                    historyPanel.style.display = "none";
+                }
+            };
+        });
+
+        // ==================== 点餐逻辑 ====================
+        function getSeasonalTag(cate, name){
+        // 只有分类是「鲜果时光」才显示应季标签
+            if(cate !== "鲜果时光") return "";
+            const m = new Date().getMonth() + 1; 
+            const seasonalMap = {
+                1: ['草莓','车厘子','橙子','柚子','甘蔗','金桔','沙糖桔'],
+                2: ['草莓','车厘子','橙子','柚子','甘蔗','金桔','沙糖桔'],
+                3: ['草莓','芒果','凤梨','青提','人参果'],
+                4: ['芒果','枇杷','凤梨','桑葚','樱桃','山竹'],
+                5: ['荔枝','樱桃','枇杷','山竹','榴莲','芒果','凤梨'],
+                6: ['西瓜','桃子','荔枝','杨梅','芒果','菠萝蜜','火龙果','杏','李子','树莓'],
+                7: ['西瓜','葡萄','桃子','荔枝','龙眼','菠萝蜜','火龙果','芒果','青提','无花果','树莓'],
+                8: ['西瓜','哈密瓜','葡萄','龙眼','芒果','菠萝蜜','火龙果','青提','无花果','木瓜','树莓'],
+                9: ['葡萄','石榴','柚子','柿子','猕猴桃','火龙果','苹果','香梨','山楂','无花果'],
+                10: ['柿子','柚子','石榴','猕猴桃','橙子','火龙果','苹果','香梨','雪莲果','人参果'],
+                11: ['橙子','柚子','猕猴桃','甘蔗','金桔','山楂','苹果','香梨','雪莲果','橘子','丑橘','沃柑'],
+                12: ['橙子','草莓','甘蔗','金桔','柚子','沙糖桔','橘子','丑橘','沃柑']
+            };
+            return seasonalMap[m]?.includes(name) ? "🍃应季" : "";
+        }
+
+        const FULL_MENU = [
+            //中餐
+            { id: 1, name: "鱼香肉丝", category: "中餐", practice: "瘦肉、木耳、胡萝卜切丝，用豆瓣酱、糖醋汁炒制，咸甜酸辣，开胃下饭。", rating: "★★★★★" },
+            { id: 2, name: "宫保鸡丁", category: "中餐", practice: "鸡丁滑油，加花生米、干辣椒、花椒，倒入宫保汁（糖醋酱油）快速翻炒。", rating: "★★★★★" },
+            { id: 3, name: "番茄炒蛋", category: "中餐", practice: "鸡蛋炒熟备用，番茄炒出汁后混合，加糖盐调味，酸甜可口。", rating: "★★★★★" },
+            { id: 4, name: "酸辣土豆丝", category: "中餐", practice: "土豆切丝泡水，干辣椒蒜片爆锅，旺火快炒，沿锅边淋醋。", rating: "★★★★☆" },
+            { id: 5, name: "麻婆豆腐", category: "中餐", practice: "豆腐焯水，牛肉末炒香，加豆瓣酱、花椒粉，勾芡后撒葱花。", rating: "★★★★☆" },
+            { id: 6, name: "回锅肉", category: "中餐", practice: "五花肉煮后切片，与蒜苗、豆瓣酱同炒，肥而不腻。", rating: "★★★★☆" },
+            { id: 7, name: "糖醋里脊", category: "中餐", practice: "里脊肉炸至金黄，裹上糖醋汁，外酥里嫩。", rating: "★★★★★" },
+            { id: 8, name: "红烧排骨", category: "中餐", practice: "排骨焯水后炒糖色，加酱油、香料炖煮至软烂。", rating: "★★★★★" },
+            { id: 9, name: "可乐鸡翅", category: "中餐", practice: "鸡翅煎至两面金黄，倒入可乐和酱油，小火收汁。", rating: "★★★★☆" },
+            { id: 10, name: "地三鲜", category: "中餐", practice: "土豆、茄子、青椒分别过油，再回锅加酱油、蒜末翻炒。", rating: "★★★★☆" },
+            { id: 11, name: "手撕包菜", category: "中餐", practice: "包菜手撕，干辣椒、五花肉煸香，大火快炒加醋。", rating: "★★★★☆" },
+            { id: 12, name: "青椒肉丝", category: "中餐", practice: "肉丝滑油，加青椒、生抽、蚝油快炒，简单下饭。", rating: "★★★★☆" },
+            { id: 13, name: "蒜蓉空心菜", category: "中餐", practice: "空心菜洗净，蒜末爆香，大火快炒，加盐调味。", rating: "★★★★☆" },
+            { id: 14, name: "干煸四季豆", category: "中餐", practice: "四季豆煸至表皮起皱，加肉末、干辣椒、花椒炒香。", rating: "★★★★☆" },
+            { id: 15, name: "水煮牛肉", category: "中餐", practice: "牛肉片滑熟，配豆芽、白菜，淋上热油和辣椒面。", rating: "★★★★★" },
+            { id: 16, name: "蒸鸡蛋", category: "中餐", practice: "鸡蛋打散加温水、盐搅匀，过滤后蒸8分钟，淋生抽和香油，嫩滑如布丁。", rating: "★★★★★" },
+            { id: 17, name: "蚝油生菜", category: "中餐", practice: "生菜焯水，淋上蒜末蚝油汁，清爽脆嫩。", rating: "★★★★☆" },
+            { id: 18, name: "红烧肉", category: "中餐", practice: "五花肉切块焯水，炒糖色后加酱油、八角、姜葱，小火慢炖40分钟，肥而不腻。", rating: "★★★★★" },
+            { id: 19, name: "葱爆羊肉", category: "中餐", practice: "羊肉片滑油，加大葱段、孜然粉爆炒。", rating: "★★★★☆" },
+            { id: 20, name: "韭菜炒鸡蛋", category: "中餐", practice: "韭菜切段，鸡蛋炒散，混合快速翻炒，鲜香嫩滑。", rating: "★★★★★" },
+            { id: 21, name: "家常豆腐", category: "中餐", practice: "老豆腐煎至两面金黄，加青椒、木耳、酱油炖煮。", rating: "★★★★☆" },
+            { id: 22, name: "蒜苔炒肉", category: "中餐", practice: "蒜苔切段，肉片煸香，加生抽、蚝油炒匀。", rating: "★★★★☆" },
+            { id: 23, name: "大煮干丝", category: "中餐", practice: "豆腐干切细丝，鸡汤烧开，加干丝、火腿丝、虾仁、青菜煮5分钟，鲜香软嫩。", rating: "★★★★★" },
+            { id: 24, name: "辣椒炒肉", category: "中餐", practice: "五花肉片煸出油，加青椒、豆豉、酱油翻炒。", rating: "★★★★☆" },
+            { id: 25, name: "香菇油菜", category: "中餐", practice: "香菇切片，油菜焯水，加蚝油、蒜末炒匀。", rating: "★★★★☆" },
+            { id: 26, name: "清炖狮子头", category: "中餐", practice: "五花肉剁馅加马蹄、蛋清，团成大丸子，小火慢炖2小时，入口即化。", rating: "★★★★★" },
+            { id: 27, name: "松仁玉米", category: "中餐", practice: "玉米粒、胡萝卜丁、松仁同炒，加糖盐，清甜爽口。", rating: "★★★★☆" },
+            { id: 28, name: "清炒菠菜", category: "中餐", practice: "菠菜洗净焯水去草酸，蒜末爆香后快速翻炒，加盐调味。", rating: "★★★★☆" },
+            { id: 29, name: "干锅花菜", category: "中餐", practice: "花菜焯水后，与五花肉、干辣椒、蒜片煸炒。", rating: "★★★★☆" },
+            { id: 30, name: "蒜香排骨", category: "中餐", practice: "排骨腌制后裹蒜末炸至金黄，外酥里嫩。", rating: "★★★★★" },
+            { id: 31, name: "家庭烧烤", category: "中餐", practice: "鸡翅、香肠、蔬菜串好，撒孜然辣椒粉，使用烤盘。", rating: "★★★★☆" },
+            { id: 32, name: "小炒黄牛肉", category: "中餐", practice: "牛肉片腌制，与生姜、香菜、姜蒜急火快炒。", rating: "★★★★★" },
+            { id: 33, name: "简易小火锅", category: "中餐", practice: "锅底放火锅料，加水煮开，涮肥牛、蔬菜、丸子，蘸麻酱或油碟。", rating: "★★★★★" },
+            { id: 34, name: "荷塘小炒", category: "中餐", practice: "藕片、荷兰豆、木耳、胡萝卜清炒，清淡爽口。", rating: "★★★★☆" },
+            { id: 35, name: "韭黄炒蛋", category: "中餐", practice: "韭黄切段，鸡蛋炒熟混合，加盐调味。", rating: "★★★★☆" },
+            { id: 36, name: "爆炒猪肝", category: "中餐", practice: "猪肝切片泡水，与洋葱、青椒猛火爆炒。", rating: "★★★☆☆" },
+            { id: 37, name: "木须肉", category: "中餐", practice: "猪肉、鸡蛋、木耳、黄瓜片同炒，酱油调味。", rating: "★★★★☆" },
+            { id: 38, name: "红烧茄子", category: "中餐", practice: "茄子切块炸软，加蒜末、生抽、糖烧至入味。", rating: "★★★★☆" },
+            { id: 39, name: "蒜蓉西兰花", category: "中餐", practice: "西兰花焯水，蒜末爆香后翻炒，加盐勾芡。", rating: "★★★★★" },
+            { id: 40, name: "蚂蚁上树", category: "中餐", practice: "粉丝泡软，肉末炒香加豆瓣酱、水，收汁后撒葱花。", rating: "★★★★☆" },
+            { id: 41, name: "扬州炒饭", category: "中餐", practice: "米饭炒散，加鸡蛋、火腿、虾仁、青豆、胡萝卜，调味翻炒。", rating: "★★★★★" },
+            { id: 42, name: "西红柿牛腩", category: "中餐", practice: "牛腩炖软，加番茄块、番茄酱炖至浓稠。", rating: "★★★★★" },
+            { id: 43, name: "平桥豆腐", category: "中餐", practice: "内酯豆腐切丁，鸡汤烧开，加豆腐、香菇丁、火腿丁，勾芡淋蛋液。", rating: "★★★★☆" },
+            { id: 44, name: "洋葱炒蛋", category: "中餐", practice: "洋葱切丝，鸡蛋炒熟混合，加盐和胡椒粉。", rating: "★★★★☆" },
+            { id: 45, name: "油焖大虾", category: "中餐", practice: "大虾煎至变色，加番茄酱、糖、葱姜焖煮。", rating: "★★★★★" },
+            { id: 46, name: "清炒莴笋", category: "中餐", practice: "莴笋切片，蒜末爆香后快速翻炒，加盐出锅。", rating: "★★★★☆" },
+            { id: 47, name: "香煎豆腐", category: "中餐", practice: "豆腐切块煎至金黄，淋上生抽、蚝油汁。", rating: "★★★★☆" },
+            { id: 48, name: "煲鸡汤", category: "中餐", practice: "鸡肉焯水，加姜片、红枣、枸杞、香菇，小火慢炖1.5小时，加盐调味，滋补暖胃。", rating: "★★★★★" },
+            { id: 49, name: "肉末茄子", category: "中餐", practice: "茄子炸软，与肉末、蒜末、豆瓣酱同炒。", rating: "★★★★☆" },
+            { id: 50, name: "玉米排骨汤", category: "中餐", practice: "排骨、玉米、胡萝卜炖煮，加盐调味，清甜滋补。", rating: "★★★★★" },
+            { id: 51, name: "海鲜粥", category: "中餐", practice: "大米煮粥，加入瑶柱、鲜虾、蛤蜊、姜丝，煮至海鲜熟透，撒沙茶粉、白胡椒粉。", rating: "★★★★★" },
+            { id: 52, name: "桑拿鸡", category: "中餐", practice: "鸡肉切块，加姜丝、虫草花、红枣蒸15分钟，锅底铺冬瓜，鸡肉鲜嫩多汁。", rating: "★★★★★" },
+            //西餐
+            { id: 53, name: "意大利肉酱面", category: "西餐", practice: "牛肉末炒香加番茄酱、洋葱、胡萝卜，熬成肉酱拌意面。", rating: "★★★★★" },
+            { id: 54, name: "黑椒牛柳", category: "西餐", practice: "牛柳腌制，与青椒、洋葱、黑胡椒酱快炒。", rating: "★★★★☆" },
+            { id: 55, name: "奶油蘑菇汤", category: "西餐", practice: "蘑菇、洋葱炒香，加黄油、淡奶油打成浓汤。", rating: "★★★★☆" },
+            { id: 56, name: "土豆泥", category: "西餐", practice: "土豆蒸熟压泥，加黄油、牛奶、盐胡椒粉拌匀。", rating: "★★★★★" },
+            { id: 57, name: "蔬菜沙拉", category: "西餐", practice: "生菜、紫甘蓝、黄瓜、圣女果切好，淋油醋汁或沙拉酱。", rating: "★★★★★" },
+            { id: 58, name: "烤鸡翅", category: "西餐", practice: "鸡翅用奥尔良腌料腌制，烤箱200度烤20分钟。", rating: "★★★★★" },
+            { id: 59, name: "简易披萨", category: "西餐", practice: "吐司或饼底抹番茄酱，铺芝士、香肠、蔬菜，烤至芝士融化。", rating: "★★★★☆" },
+            { id: 60, name: "三明治", category: "西餐", practice: "吐司夹生菜、火腿、芝士、煎蛋，对角线切开。", rating: "★★★★★" },
+            { id: 61, name: "汉堡", category: "西餐", practice: "汉堡胚夹牛肉饼、生菜、番茄、芝士片，挤酱料。", rating: "★★★★☆" },
+            { id: 62, name: "煎牛排", category: "西餐", practice: "牛排室温回温，两面煎至焦黄，加黄油、蒜瓣，静置后切块。", rating: "★★★★★" },
+            { id: 63, name: "罗宋汤", category: "西餐", practice: "牛肉、番茄、卷心菜、土豆、胡萝卜炖煮，酸甜浓郁。", rating: "★★★★★" },
+            { id: 64, name: "奶油培根意面", category: "西餐", practice: "培根炒香，加淡奶油、蛋黄酱，与意面拌匀。", rating: "★★★★☆" },
+            { id: 65, name: "红酒炖牛肉", category: "西餐", practice: "牛腩切块，用红酒、洋葱、胡萝卜炖煮1.5小时，加香叶、番茄酱，软烂入味。", rating: "★★★★★" },
+            { id: 66, name: "芝士焗蛋", category: "西餐", practice: "鸡蛋打散加牛奶、盐，铺芝士碎，烤箱180度烤15分钟，嫩滑拉丝。", rating: "★★★★☆" },
+            { id: 67, name: "蒜香虾仁", category: "西餐", practice: "虾仁用蒜末、黄油、柠檬汁炒香，撒欧芹碎，鲜嫩爽口。", rating: "★★★★★" },
+            { id: 68, name: "西班牙海鲜饭", category: "西餐", practice: "大米与虾、青口、鱿鱼、番茄、藏红花同煮，收汁。", rating: "★★★★★" },
+            { id: 69, name: "番茄肉丸意面", category: "西餐", practice: "牛肉丸煎熟，加番茄酱、意面翻炒，撒芝士粉。", rating: "★★★★☆" },
+            { id: 70, name: "奶油玉米浓汤", category: "西餐", practice: "玉米粒、洋葱炒香，加牛奶、淡奶油打成浓汤，香甜顺滑。", rating: "★★★★★" },
+            { id: 71, name: "香煎三文鱼", category: "西餐", practice: "三文鱼撒盐胡椒，煎至两面金黄，挤柠檬汁。", rating: "★★★★★" },
+            { id: 72, name: "烤蘑菇", category: "西餐", practice: "口蘑去蒂，撒盐、黑胡椒、芝士碎，烤箱180度烤10分钟，鲜嫩多汁。", rating: "★★★★☆" },
+            { id: 73, name: "奶油南瓜汤", category: "西餐", practice: "南瓜蒸熟，与洋葱、奶油、鸡汤打成糊，调味。", rating: "★★★★★" },
+            { id: 74, name: "烤薯角", category: "西餐", practice: "土豆切角，加辣椒粉、孜然粉、油，烤至外焦里嫩。", rating: "★★★★☆" },
+            { id: 75, name: "牧羊人派", category: "西餐", practice: "牛肉末炒香铺底，上层覆盖土豆泥，烤至金黄。", rating: "★★★★☆" },
+            { id: 76, name: "香煎鸡腿排", category: "西餐", practice: "去骨鸡腿肉用盐、黑胡椒腌制，皮朝下煎至金黄，翻面煎熟，外酥里嫩。", rating: "★★★★★" },
+            { id: 77, name: "焗蜗牛", category: "西餐", practice: "蜗牛与蒜蓉黄油、香草一起烤制，配面包。", rating: "★★★☆☆" },
+            { id: 78, name: "炸鱼薯条", category: "西餐", practice: "鳕鱼裹面糊炸脆，配薯条和塔塔酱。", rating: "★★★★☆" },
+            { id: 79, name: "普罗旺斯炖菜", category: "西餐", practice: "茄子、西葫芦、彩椒、番茄慢炖，淋橄榄油。", rating: "★★★★☆" },
+            { id: 80, name: "意式蔬菜汤", category: "西餐", practice: "番茄、洋葱、西芹、胡萝卜、卷心菜煮软，加香草，清淡健康。", rating: "★★★★☆" },
+            { id: 81, name: "烤土豆角", category: "西餐", practice: "土豆切块，加橄榄油、盐、迷迭香烤至外脆内软。", rating: "★★★★★" },
+            { id: 82, name: "虾仁沙拉", category: "西餐", practice: "虾仁煮熟，与生菜、牛油果、芒果，淋柠檬汁。", rating: "★★★★☆" },
+            { id: 83, name: "德国啤酒烤肉", category: "西餐", practice: "猪肩肉或鸡腿用啤酒、蒜末、黑胡椒、盐腌制2小时，烤箱200度烤40分钟，外皮焦脆，肉汁丰盈。", rating: "★★★★★" },
+            { id: 84, name: "奶酪火锅", category: "西餐", practice: "奶酪融化，用面包、蔬菜蘸食，浓郁香醇。", rating: "★★★★☆" },
+            { id: 85, name: "香草烤鸡", category: "西餐", practice: "整鸡抹香草、盐、橄榄油，烤至皮脆肉嫩。", rating: "★★★★★" },
+            { id: 86, name: "焗饭", category: "西餐", practice: "米饭铺肉酱、蔬菜、芝士，烤至芝士融化。", rating: "★★★★☆" },
+            { id: 87, name: "奶油菠菜", category: "西餐", practice: "菠菜与奶油、蒜末同煮，调味后撒芝士。", rating: "★★★★☆" },
+            { id: 88, name: "红薯条", category: "西餐", practice: "红薯切条，裹淀粉炸或烤，撒盐和辣椒粉。", rating: "★★★★★" },
+            //甜点
+            { id: 89, name: "芒果布丁", category: "甜点", practice: "芒果切丁与牛奶、淡奶油、吉利丁片混合，冷藏凝固后脱模。", rating: "★★★★★" },
+            { id: 90, name: "杨枝甘露", category: "甜点", practice: "芒果泥、椰浆、西米、柚子粒混合，冷藏后口感更佳。", rating: "★★★★★" },
+            { id: 91, name: "双皮奶", category: "甜点", practice: "牛奶加热结皮，蛋清、糖混合后倒回，蒸制凝固。", rating: "★★★★☆" },
+            { id: 92, name: "红豆沙汤圆", category: "甜点", practice: "红豆煮烂压泥，糯米粉搓圆煮熟，与红豆汤同食。", rating: "★★★★★" },
+            { id: 93, name: "牛奶炖蛋", category: "甜点", practice: "鸡蛋打散，加牛奶、糖搅匀，过滤后蒸10分钟，嫩滑香甜。", rating: "★★★★★" },
+            { id: 94, name: "胶颜羹", category: "甜点", practice: "桃胶、皂角米、雪燕提前泡发12小时，加红枣、枸杞、冰糖炖煮40分钟，胶质满满。", rating: "★★★★★" },
+            { id: 95, name: "雪媚娘", category: "甜点", practice: "糯米皮包打发淡奶油和水果，收口捏紧冷藏。", rating: "★★★★☆" },
+            { id: 96, name: "南瓜饼", category: "甜点", practice: "南瓜蒸熟压泥，加糯米粉揉团，煎至两面金黄。", rating: "★★★★☆" },
+            { id: 97, name: "铜锣烧", category: "甜点", practice: "面糊摊成小圆饼，夹红豆沙馅，松软香甜。", rating: "★★★★☆" },
+            { id: 98, name: "芒果糯米糍", category: "甜点", practice: "糯米皮包芒果块，裹椰蓉，软糯拉丝。", rating: "★★★★★" },
+            { id: 99, name: "蛋挞", category: "甜点", practice: "蛋挞皮倒入蛋奶液，烤箱200度烤20分钟。", rating: "★★★★★" },
+            { id: 100, name: "红糖糍粑", category: "甜点", practice: "糯米粉揉团煎至两面脆，淋红糖浆，撒黄豆粉。", rating: "★★★★☆" },
+            { id: 101, name: "苹果派", category: "甜点", practice: "派皮包苹果丁、肉桂，烤至金黄酥脆。", rating: "★★★★★" },
+            { id: 102, name: "红糖冰粉", category: "甜点", practice: "冰粉粉加水煮沸，冷藏凝固，淋红糖水，撒葡萄干、山楂碎、花生碎。", rating: "★★★★★" },
+            { id: 103, name: "椰奶冻", category: "甜点", practice: "椰浆、牛奶、吉利丁片加热，冷藏凝固。", rating: "★★★★☆" },
+            { id: 104, name: "桂花糕", category: "甜点", practice: "糯米粉、粘米粉加糖蒸制，撒桂花酱。", rating: "★★★★☆" },
+            { id: 105, name: "酒酿圆子", category: "甜点", practice: "糯米小圆子煮熟，加入酒酿、蛋花、枸杞，甜香暖胃。", rating: "★★★★★" },
+            { id: 106, name: "冰糖雪梨", category: "甜点", practice: "雪梨挖空，加冰糖、枸杞炖煮至软。", rating: "★★★★☆" },
+            { id: 107, name: "蓝莓山药", category: "甜点", practice: "山药泥塑形，淋蓝莓酱，冷藏后食用。", rating: "★★★★☆" },
+            { id: 108, name: "红枣银耳羹", category: "甜点", practice: "银耳泡发撕小朵，加红枣、冰糖炖至粘稠，可撒枸杞。", rating: "★★★★☆" },
+            //水果
+            { id: 301, name: "草莓", category: "鲜果时光", practice: "洗净去蒂，可直接食用，或蘸炼乳、巧克力酱。", rating: "★★★★★" },
+            { id: 302, name: "芒果", category: "鲜果时光", practice: "切丁或切片，搭配酸奶、椰浆，制成芒果奶昔。", rating: "★★★★★" },
+            { id: 303, name: "车厘子", category: "鲜果时光", practice: "冰镇后口感更佳，可做水果塔、蛋糕装饰。", rating: "★★★★★" },
+            { id: 304, name: "蓝莓", category: "鲜果时光", practice: "直接吃或撒在燕麦碗、酸奶中，抗氧化小浆果。", rating: "★★★★☆" },
+            { id: 305, name: "桃子", category: "鲜果时光", practice: "软桃直接剥皮，硬桃可做糖水罐头。", rating: "★★★★★" },
+            { id: 306, name: "荔枝", category: "鲜果时光", practice: "冰镇后更清甜，可去核填入菠萝或做荔枝冰饮。", rating: "★★★★☆" },
+            { id: 307, name: "火龙果", category: "鲜果时光", practice: "红心火龙果榨汁配酸奶，或切块做水果捞。", rating: "★★★★☆" },
+            { id: 308, name: "青提", category: "鲜果时光", practice: "冻成小冰球搭配起泡酒，或拌奶酪做成沙拉。", rating: "★★★★☆" },
+            { id: 309, name: "凤梨", category: "鲜果时光", practice: "削皮切块，盐水浸泡后更甜，可烤制凤梨片。", rating: "★★★★★" },
+            { id: 310, name: "猕猴桃", category: "鲜果时光", practice: "切半用勺子挖食，或榨汁搭配蜂蜜。", rating: "★★★★☆" },
+            { id: 311, name: "石榴", category: "鲜果时光", practice: "取籽拌酸奶，或榨汁做石榴气泡饮，颜值高。", rating: "★★★★☆" },
+            { id: 312, name: "橙子", category: "鲜果时光", practice: "直接剥食，或榨汁、做橙香蛋糕、橙皮糖。", rating: "★★★★☆" },
+            { id: 313, name: "西瓜", category: "鲜果时光", practice: "冰镇后切块，或挖成球，夏日解暑必备。", rating: "★★★★★" },
+            { id: 314, name: "哈密瓜", category: "鲜果时光", practice: "切块或挖球，与火腿、奶酪搭配成前菜。", rating: "★★★★☆" },
+            { id: 315, name: "椰子", category: "鲜果时光", practice: "椰汁直接喝，椰肉可做椰子冻、椰蓉。", rating: "★★★★★" },
+            { id: 316, name: "百香果", category: "鲜果时光", practice: "挖出果肉加蜂蜜冲水，或调鸡尾酒、做慕斯。", rating: "★★★★☆" },
+            { id: 317, name: "苹果", category: "鲜果时光", practice: "可生吃，或烤制苹果片、做苹果派。", rating: "★★★★☆" },
+            { id: 318, name: "香蕉", category: "鲜果时光", practice: "直接吃，或压泥做香蕉松饼、奶昔。", rating: "★★★★☆" },
+            { id: 319, name: "山竹", category: "鲜果时光", practice: "剥开吃白色果肉，清爽降火。", rating: "★★★★★" },
+            { id: 320, name: "榴莲", category: "鲜果时光", practice: "直接食用，或做榴莲班戟、榴莲千层。", rating: "★★★★★" },
+            { id: 321, name: "柚子", category: "鲜果时光", practice: "剥瓣食用，或做蜂蜜柚子茶，润燥解腻。", rating: "★★★★☆" },
+            { id: 322, name: "柠檬", category: "鲜果时光", practice: "切片泡水，或做柠檬酱、柠檬塔，清新提神。", rating: "★★★★☆" },
+            { id: 323, name: "木瓜", category: "鲜果时光", practice: "直接吃，或炖牛奶木瓜、木瓜沙拉。", rating: "★★★★☆" },
+            { id: 324, name: "柿子", category: "鲜果时光", practice: "软柿直接吸食，硬柿做柿饼，润肺生津。", rating: "★★★★☆" },
+            { id: 325, name: "桂圆", category: "鲜果时光", practice: "鲜食或晒干煮桂圆红枣茶，补气血。", rating: "★★★★☆" },
+            { id: 326, name: "枇杷", category: "鲜果时光", practice: "去皮去核，润肺止咳，可做枇杷膏。", rating: "★★★★☆" },
+            { id: 327, name: "杨梅", category: "鲜果时光", practice: "盐水浸泡后食用，或冰镇、制杨梅酒。", rating: "★★★★★" },
+            { id: 328, name: "桑葚", category: "鲜果时光", practice: "直接吃或做桑葚酱、桑葚汁，补血养颜。", rating: "★★★★☆" },
+            { id: 329, name: "杏", category: "鲜果时光", practice: "鲜食或制杏干、杏酱，酸甜开胃。", rating: "★★★★☆" },
+            { id: 330, name: "李子", category: "鲜果时光", practice: "直接吃，或做李子果酱、李干，助消化。", rating: "★★★★☆" },
+            { id: 331, name: "无花果", category: "鲜果时光", practice: "鲜食或做无花果沙拉、无花果酱，软糯甜润。", rating: "★★★★★" },
+            { id: 332, name: "释迦", category: "鲜果时光", practice: "剖开吃果肉，甜度高，可做冰沙。", rating: "★★★★☆" },
+            { id: 333, name: "莲雾", category: "鲜果时光", practice: "洗净直接啃，清爽解渴，适合拌沙拉。", rating: "★★★★☆" },
+            { id: 334, name: "菠萝蜜", category: "鲜果时光", practice: "取果肉生吃，种子可煮食，香甜浓郁。", rating: "★★★★☆" },
+            { id: 335, name: "红毛丹", category: "鲜果时光", practice: "剥壳吃果肉，类似荔枝，鲜甜多汁。", rating: "★★★★☆" },
+            { id: 336, name: "人参果", category: "鲜果时光", practice: "洗净连皮吃，清甜润肺，可榨汁。", rating: "★★★★☆" },
+            { id: 337, name: "雪莲果", category: "鲜果时光", practice: "削皮生吃，脆甜低卡，适合减肥。", rating: "★★★★☆" },
+            { id: 338, name: "金桔", category: "鲜果时光", practice: "连皮吃，或做金桔蜜饯、金桔柠檬茶。", rating: "★★★★☆" },
+            { id: 339, name: "山楂", category: "鲜果时光", practice: "做糖葫芦、山楂糕、山楂茶，助消化。", rating: "★★★★☆" },
+            { id: 340, name: "甘蔗", category: "鲜果时光", practice: "削皮啃食或榨汁，清甜润燥。", rating: "★★★★☆" },
+            { id: 341, name: "荸荠", category: "鲜果时光", practice: "生吃爽脆，或煮糖水、做肉馅，清热润肺。", rating: "★★★★☆" },
+            { id: 342, name: "沙糖桔", category: "鲜果时光", practice: "小巧易剥，甜度高，年节必备。", rating: "★★★★★" },
+            { id: 343, name: "丑橘", category: "鲜果时光", practice: "果肉脆嫩，酸甜适口，适合鲜食。", rating: "★★★★☆" },
+            { id: 344, name: "沃柑", category: "鲜果时光", practice: "皮薄肉厚，汁多味甜，晚熟柑橘。", rating: "★★★★☆" },
+            { id: 345, name: "葡萄柚", category: "鲜果时光", practice: "切半挖食，或榨汁，低卡富含维C。", rating: "★★★★☆" },
+            { id: 346, name: "香梨", category: "鲜果时光", practice: "酥脆多汁，直接食用，润肺止咳。", rating: "★★★★☆" },
+            { id: 347, name: "樱桃", category: "鲜果时光", practice: "洗净直接吃，酸甜多汁，富含铁元素。", rating: "★★★★★" },
+            { id: 348, name: "龙眼", category: "鲜果时光", practice: "剥壳鲜食，或晒干煲汤，补益心脾。", rating: "★★★★★" },
+            { id: 349, name: "牛油果", category: "鲜果时光", practice: "做牛油果沙拉、配吐司，或打奶昔，绵密醇厚。", rating: "★★★★☆" },
+            { id: 351, name: "树莓", category: "鲜果时光", practice: "直接食用，或搭配酸奶、冰淇淋，也可做树莓酱、树莓慕斯。", rating: "★★★★★" },
+        ];
+        let currentCategory = "全部";
+        let selected = new Map();
+        let orders = [];
+
+        // 渲染分类
+        function renderCats(){
+            const bar = document.getElementById("categoryBar");
+            bar.innerHTML = "";
+            ["全部","中餐","西餐","甜点","鲜果时光"].forEach(c => {
+                const b = document.createElement("div");
+                b.className = "cat-btn";
+                if(c===currentCategory) b.classList.add("active");
+                b.innerText = c;
+                b.onclick = ()=>{ currentCategory=c; renderCats(); renderDishes(); };
+                bar.appendChild(b);
+            });
+        }
+
+        // 渲染菜品
+        function renderDishes(){
+            const grid = document.getElementById("dishesGrid");
+            grid.innerHTML = "";
+            const list = currentCategory==="全部" ? [...FULL_MENU] : FULL_MENU.filter(x=>x.category===currentCategory);
+            list.forEach(d => {
+                const card = document.createElement("div");
+                card.className = "dish-card";
+                const tag = getSeasonalTag(d.category,d.name);
+                card.innerHTML = `
+                    <div class="dish-name">${d.name} ${tag?`<span class='season-tag'>${tag}</span>`:""}</div>
+                    <div class="rating">${d.rating}</div>
+                    <div style="font-size:0.7rem;background:#e9f3e4;padding:0.2rem 0.6rem;border-radius:30px;">${d.category}</div>
+                    <div class="checkbox-area"><input type="checkbox" id="c${d.id}" ${selected.get(d.id)?"checked":""}><label for="c${d.id}">✅ 点这道菜</label></div>
+                    <button class="detail-btn" data-name="${d.name}" data-practice="${d.practice}">📖 做法 Tips </button>
+                `;
+                card.querySelector("input").onchange = e=>selected.set(d.id,e.target.checked);
+                card.querySelector(".detail-btn").onclick = e=>alert(`🍳 ${e.target.dataset.name}\n做法：${e.target.dataset.practice}`);
+                grid.appendChild(card);
+            });
+        }
+
+        // 日期
+        function updateDate(){
+            const now = new Date();
+            const y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,"0"), d = String(now.getDate()).padStart(2,"0");
+            const wd = ["周日","周一","周二","周三","周四","周五","周六"][now.getDay()];
+            document.getElementById("currentDateDisplay").innerHTML = `${y}.${m}.${d} <span>${wd}</span>`;
+            const today = `${y}-${m}-${d}`;
+            const max = new Date(now); max.setDate(now.getDate()+7);
+            const ipt = document.getElementById("orderDate");
+            ipt.min = today; ipt.max = max.toISOString().slice(0,10);
+            if(!ipt.value) ipt.value = today;
+        }
+
+        // 订单加载
+        async function loadOrders(){
+            document.getElementById("syncStatus").innerText = "🔄加载中";
+            const { data, error } = await supabaseClient.from("orders").select("*").order("created_at",{ascending:false});
+            if(error){ console.error(error); showToast("加载失败","error"); return; }
+            orders = data || [];
+            renderOrderHistory();
+            document.getElementById("syncStatus").innerText = "☁️实时";
+        }
+
+        // 渲染订单历史
+        function renderOrderHistory(){
+            const now = new Date();
+            const y = now.getFullYear(), m = now.getMonth()+1;
+            const list = orders.filter(o=>{
+                if(!o.order_date) return false;
+                const [ry,rm] = o.order_date.split("-");
+                return +ry===y && +rm===m;
+            });
+            const dom = document.getElementById("floatRecordList");
+            if(list.length===0){ dom.innerHTML = "<div>🌱暂无记录</div>"; return; }
+            let html = "";
+            list.forEach(o=>{
+                const dishes = o.dishes_list||[];
+                html+=`
+                <div class="record-item-mini">
+                    <div style="flex:1">
+                        <div class="record-header-mini"><span>${o.diner}</span><span>${o.order_date}</span></div>
+                        <div>${dishes.join("、")}</div>
+                    </div>
+                    <button class="delete-record-btn" data-id="${o.id}">🗑️删除</button>
+                </div>`;
+            });
+            dom.innerHTML = html;
+            document.querySelectorAll(".delete-record-btn").forEach(btn=>{
+                btn.onclick = async ()=>{
+                    if(!confirm("确定删除？")) return;
+                    await supabaseClient.from("orders").delete().eq("id",btn.dataset.id);
+                    loadOrders();
+                };
+            });
+        }
+
+        // 提交订单
+        async function submitOrder(){
+            const ids = [];
+            for(const [id,v] of selected) if(v) ids.push(id);
+            const list = FULL_MENU.filter(x=>ids.includes(x.id));
+            if(list.length===0){ showToast("请先选菜","warning"); return; }
+            const diner = getCurrentUser();
+            const date = document.getElementById("orderDate").value;
+            if(!date){ showToast("请选日期","warning"); return; }
+            const names = list.map(x=>x.name);
+            const { error } = await supabaseClient.from("orders").insert([{diner,order_date:date,dishes_list:names}]);
+            if(error){ showToast("提交失败","error"); return; }
+            selected.clear(); renderDishes();
+            showToast("✅ 点餐成功！","success");
+            document.getElementById("coolConfirmModal").style.display = "none";
+        }
+
+        // 确认弹窗
+        function showConfirm(){
+            const ids = [];
+            for(const [id,v] of selected) if(v) ids.push(id);
+            const list = FULL_MENU.filter(x=>ids.includes(x.id));
+            if(list.length===0){ showToast("请先选菜","warning"); return; }
+            const dom = document.getElementById("confirmDishesList");
+            dom.innerHTML = list.map(x=>`<div>🍽️ ${x.name}</div>`).join("");
+            document.getElementById("coolConfirmModal").style.display = "flex";
+        }
+
+        // ==================== 待办 & 心愿 逻辑 ====================
+        async function loadList(type, domId){
+            const { data } = await supabaseClient
+                .from(type)
+                .select("*")
+                .order("created_at", { ascending: false });
+
+            const list = data || [];
+            const dom = document.getElementById(domId);
+
+            dom.innerHTML = list.map(item => {
+                const createdAt = formatDate(item.created_at);
+                const completedAt = item.completed_at ? formatDate(item.completed_at) : "";
+                const remarkUpdatedAt = item.remark_updated_at ? formatDate(item.remark_updated_at) : "";
+                return `
+                <div class="list-item ${item.is_completed ? 'completed' : ''}">
+                    <div class="list-item-left">
+                        <input type="checkbox" class="list-item-checkbox" data-type="${type}" data-id="${item.id}" ${item.is_completed ? 'checked' : ''}>
+                        <div>
+                            <div class="list-item-text">${item.content}</div>
+                            <div class="list-item-meta">
+                                <span>👤 ${item.created_by}</span>
+                                <span>📅 ${createdAt}</span>
+                                ${completedAt ? `<span>✅ ${completedAt}</span>` : ''}
+                            </div>
+                            ${item.remark ? `
+                            <div class="list-item-remark">
+                                💬 ${item.remark}
+                                <div class="list-item-remark-meta">
+                                    <span>备注人：${item.remark_by || '未知'}</span>
+                                    ${remarkUpdatedAt ? `<span>备注时间：${remarkUpdatedAt}</span>` : ''}
+                                </div>
+                            </div>` : ''}
+                        </div>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="list-item-edit" data-type="${type}" data-id="${item.id}">📝</button>
+                        <button class="list-item-delete" data-type="${type}" data-id="${item.id}">🗑️</button>
+                    </div>
+                </div>`;
+            }).join('');
+
+            // 完成状态切换
+            dom.querySelectorAll('.list-item-checkbox').forEach(cb => {
+                cb.onchange = async () => {
+                    const updateData = {
+                        is_completed: cb.checked,
+                        completed_at: cb.checked ? new Date() : null
+                    };
+                    await supabaseClient.from(cb.dataset.type).update(updateData).eq('id', cb.dataset.id);
+                    loadList(type, domId);
+                };
+            });
+
+            // 编辑
+            dom.querySelectorAll('.list-item-edit').forEach(btn => {
+                btn.onclick = async () => {
+                    const { data } = await supabaseClient.from(btn.dataset.type).select('*').eq('id', btn.dataset.id).single();
+                    document.getElementById('editId').value = btn.dataset.id;
+                    document.getElementById('editType').value = btn.dataset.type;
+                    document.getElementById('editContent').value = data.content;
+                    document.getElementById('editRemark').value = data.remark || '';
+                    document.getElementById('editModal').style.display = 'flex';
+                };
+            });
+
+            // 删除
+            dom.querySelectorAll('.list-item-delete').forEach(btn => {
+                btn.onclick = async () => {
+                    if (!confirm('确定删除？')) return;
+                    await supabaseClient.from(btn.dataset.type).delete().eq('id', btn.dataset.id);
+                    loadList('todo', 'todoList');
+                    loadList('wish', 'wishList');
+                };
+            });
+        }
+
+        // 保存编辑（同时保存备注人）
+        document.getElementById('saveEdit').onclick = async () => {
+            const id = document.getElementById('editId').value;
+            const type = document.getElementById('editType').value;
+            const content = document.getElementById('editContent').value.trim();
+            const remark = document.getElementById('editRemark').value.trim();
+
+            if (!content) {
+                showToast('内容不能为空', 'warning');
+                return;
+            }
+
+            const updateData = {
+                content,
+                remark,
+                remark_by: remark ? getCurrentUser() : null, // 只有写了备注才记录备注人
+                remark_updated_at: remark ? new Date() : null
+            };
+
+            await supabaseClient.from(type).update(updateData).eq('id', id);
+            document.getElementById('editModal').style.display = 'none';
+            loadList('todo', 'todoList');
+            loadList('wish', 'wishList');
+            showToast('✅ 保存成功', 'success');
+        };
+
+        // 取消编辑
+        document.getElementById('cancelEdit').onclick = () => {
+            document.getElementById('editModal').style.display = 'none';
+        };
+
+        // 提交待办
+        document.getElementById("todoSubmit").onclick = async ()=>{
+            const ipt = document.getElementById("todoInput");
+            const c = ipt.value.trim();
+            if(!c){ showToast("请输入内容","warning"); return; }
+            await supabaseClient.from("todo").insert([{
+                content: c,
+                created_by: getCurrentUser()
+            }]);
+            ipt.value = "";
+            loadList("todo","todoList");
+            showToast("✅ 待办已上传","success");
+        };
+
+        // 提交心愿
+        document.getElementById("wishSubmit").onclick = async ()=>{
+            const ipt = document.getElementById("wishInput");
+            const c = ipt.value.trim();
+            if(!c){ showToast("请输入心愿","warning"); return; }
+            await supabaseClient.from("wish").insert([{
+                content: c,
+                created_by: getCurrentUser()
+            }]);
+            ipt.value = "";
+            loadList("wish","wishList");
+            showToast("✅ 心愿已上传","success");
+        };
+
+        // 实时监听
+        function subscribe(){
+            supabaseClient.channel("all").on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>loadOrders()).subscribe();
+            supabaseClient.channel("todo").on("postgres_changes",{event:"*",schema:"public",table:"todo"},()=>loadList("todo","todoList")).subscribe();
+            supabaseClient.channel("wish").on("postgres_changes",{event:"*",schema:"public",table:"wish"},()=>loadList("wish","wishList")).subscribe();
+        }
+
+        // 初始化
+        async function init(){
+            updateDate(); renderCats(); renderDishes();
+            await loadOrders();
+            loadList("todo","todoList");
+            loadList("wish","wishList");
+            subscribe();
+
+            document.getElementById("floatSubmitBtn").onclick = showConfirm;
+            document.getElementById("proceedConfirmBtn").onclick = submitOrder;
+            document.getElementById("cancelConfirmBtn").onclick = ()=>document.getElementById("coolConfirmModal").style.display="none";
+            document.getElementById("refreshFloatBtn").onclick = loadOrders;
+            
+            // 折叠历史
+            let coll = false;
+            document.getElementById("floatHeader").onclick = ()=>{
+                coll = !coll;
+                const c = document.getElementById("floatContent");
+                const i = document.getElementById("toggleFloatIcon");
+                if(coll){ c.classList.add("collapsed"); i.innerText="▲"; }
+                else{ c.classList.remove("collapsed"); i.innerText="▼"; }
+            };
+
+            // 点击空白关闭弹窗
+            document.getElementById('editModal').onclick = (e) => {
+                if (e.target === document.getElementById('editModal')) {
+                    document.getElementById('editModal').style.display = 'none';
+                }
+            };
+
+            setTimeout(()=>showToast("🍃 系统加载完成","success"),800);
+        }
+
+        init();
+    </script>
+</body>
+</html>
