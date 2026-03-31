@@ -6,6 +6,8 @@
     <title>家庭点餐系统 · 待办 + 心愿 · 实时同步</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 引入 SHA-256 哈希库 -->
+    <script src="https://cdn.jsdelivr.net/npm/sha256@0.2.0/sha256.min.js"></script>
     <style>
         /* 密码锁样式 */
         .password-lock {
@@ -66,6 +68,15 @@
             margin-bottom: 1rem;
             font-weight: 500;
             display: none;
+        }
+
+        /* 震动动画 */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -344,28 +355,28 @@
 
     <script>
         // ===== 密码锁核心逻辑 =====
-        // 请修改这里的密码为你想要的密码
-        const ACCESS_PASSWORD = "123456520"; // 建议修改为更复杂的密码
-        
+        // 👇 请修改这里的密码为你想要的密码 👇
+        const CORRECT_PASSWORD_HASH = "14bbfb46cb710ab5cf477269d856fc79d4d5b31cfbe466a37a43b1537e0693a4";
+
+
+
         // 密码验证函数
         function verifyPassword() {
             const passwordInput = document.getElementById('passwordInput');
             const passwordError = document.getElementById('passwordError');
             const passwordLock = document.getElementById('passwordLock');
+            const passwordCard = document.querySelector('.password-card');
             
             const inputValue = passwordInput.value.trim();
-            
-            if (inputValue === ACCESS_PASSWORD) {
-                // 密码正确，隐藏密码锁，显示内容
+            const inputHash = sha256(inputValue); // 对输入密码做哈希
+
+            if (inputHash === CORRECT_PASSWORD_HASH) {
                 passwordLock.style.display = 'none';
-                // 可选：保存登录状态，刷新页面不需要重新输入
                 localStorage.setItem('hasAccess', 'true');
                 showToast('验证成功，欢迎使用！', 'success');
             } else {
-                // 密码错误，显示错误提示
                 passwordError.style.display = 'block';
                 passwordInput.value = '';
-                // 震动效果
                 passwordCard.style.animation = 'shake 0.5s';
                 setTimeout(() => {
                     passwordCard.style.animation = '';
@@ -378,33 +389,16 @@
             const hasAccess = localStorage.getItem('hasAccess');
             const passwordLock = document.getElementById('passwordLock');
             
-            // 如果已经登录过，直接隐藏密码锁
             if (hasAccess === 'true') {
                 passwordLock.style.display = 'none';
             }
 
-            // 密码提交按钮事件
             document.getElementById('passwordSubmit').addEventListener('click', verifyPassword);
-            
-            // 按回车键验证密码
             document.getElementById('passwordInput').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     verifyPassword();
                 }
             });
-
-            // 添加震动动画样式
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes shake {
-                    0%, 100% { transform: translateX(0); }
-                    20% { transform: translateX(-8px); }
-                    40% { transform: translateX(8px); }
-                    60% { transform: translateX(-4px); }
-                    80% { transform: translateX(4px); }
-                }
-            `;
-            document.head.appendChild(style);
         });
 
         // ===== 原有功能代码 =====
@@ -496,7 +490,7 @@
             { id: 10, name: "地三鲜", category: "中餐", practice: "土豆、茄子、青椒分别过油，再回锅加酱油、蒜末翻炒。", rating: "★★★★☆" },
             { id: 11, name: "手撕包菜", category: "中餐", practice: "包菜手撕，干辣椒、五花肉煸香，大火快炒加醋。", rating: "★★★★☆" },
             { id: 12, name: "青椒肉丝", category: "中餐", practice: "肉丝滑油，加青椒、生抽、蚝油快炒，简单下饭。", rating: "★★★★☆" },
-            { id: 13, name: "蒜蓉空心菜", category: "中餐", practice: "空心菜洗净，蒜末爆香，大火快炒，加盐调味。", rating: "★★★★☆" },
+            { id: 13, name: "蒜蓉空心菜", category: "中餐", practice: "空心菜洗净，蒜末爆香，大火快炒加盐调味。", rating: "★★★★☆" },
             { id: 14, name: "干煸四季豆", category: "中餐", practice: "四季豆煸至表皮起皱，加肉末、干辣椒、花椒炒香。", rating: "★★★★☆" },
             { id: 15, name: "水煮牛肉", category: "中餐", practice: "牛肉片滑熟，配豆芽、白菜，淋上热油和辣椒面。", rating: "★★★★★" },
             { id: 16, name: "蒸鸡蛋", category: "中餐", practice: "鸡蛋打散加温水、盐搅匀，过滤后蒸8分钟，淋生抽和香油，嫩滑如布丁。", rating: "★★★★★" },
