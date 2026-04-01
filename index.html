@@ -100,6 +100,42 @@
         .page { display: none; }
         .page.active { display: block; }
 
+        /* 收缩式搜索框样式 */
+        .search-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            margin: 0 1rem;
+        }
+        .search-input {
+            width: 40px; /* 默认收缩宽度（仅显示图标） */
+            height: 42px;
+            padding: 0 1.2rem 0 2.5rem;
+            border: 2px solid #d2e8cb;
+            border-radius: 48px;
+            font-size: 1rem;
+            background: #f1faea;
+            color: #2b6236;
+            transition: width 0.3s ease;
+            outline: none;
+            opacity: 0.8;
+        }
+        .search-input:focus,
+        .search-wrapper:hover .search-input {
+            width: 220px; /* 展开宽度 */
+            opacity: 1;
+        }
+        .search-input::placeholder {
+            color: #80b578;
+        }
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            font-size: 1rem;
+            color: #2b6236;
+            pointer-events: none; /* 不遮挡输入框点击 */
+        }
+
         .category-tabs { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: 1.2rem 0 1.8rem 0; border-bottom: 1px solid #c2e0bc; padding-bottom: 0.6rem; }
         .cat-btn { background: #e0f1db; padding: 0.5rem 1.5rem; border-radius: 40px; font-weight: 600; cursor: pointer; color: #2a5a2a; }
         .cat-btn.active { background: #2e7d32; color: white; }
@@ -262,7 +298,7 @@
         <div class="header-panel">
             <div class="date-badge" id="currentDateDisplay"></div>
             <div class="order-config">
-                <div class="config-item"><span>🍽️ 执箸人：</span>
+                <div class="config-item"><span>🥢 执箸人：</span>
                     <div class="radio-group">
                         <label><input type="radio" name="diner" value="喵呜" checked> 喵呜</label>
                         <label><input type="radio" name="diner" value="蜀黍"> 蜀黍</label>
@@ -282,6 +318,11 @@
 
         <!-- 点餐页面 -->
         <div id="page-order" class="page active">
+            <!-- 新增搜索组件 -->
+            <div class="search-wrapper">
+                <input type="text" class="search-input" id="dishSearchInput" placeholder="搜索菜品...">
+                <span class="search-icon">🔍</span>
+            </div>
             <div class="category-tabs" id="categoryBar"></div>
             <div class="dishes-grid" id="dishesGrid"></div>
             <div class="submit-wrap"><button class="submit-main" id="submitOrderBtn">✨ 确认点餐 ✨</button></div>
@@ -323,11 +364,11 @@
     <!-- 点餐确认弹窗 -->
     <div id="coolConfirmModal" class="cool-modal">
         <div class="cool-modal-card">
-            <h3>✨ 美味确认单</h3>
+            <h3>✨ 美味确认单 ✨</h3>
             <div id="confirmDishesList" class="selected-dishes-list"></div>
             <div class="modal-actions">
                 <button id="cancelConfirmBtn" style="background:#b0b9a8;">再想想</button>
-                <button id="proceedConfirmBtn" style="background:#2f6b2f;">确认点餐</button>
+                <button id="proceedConfirmBtn" style="background:#2f6b2f;">确认点餐 ✅</button>
             </div>
         </div>
     </div>
@@ -400,7 +441,7 @@
                 }
             });
         });
-
+        
         // ===== 原有功能代码 =====
         // 提醒
         function showToast(message, type = "info") {
@@ -640,57 +681,162 @@
             { id: 349, name: "牛油果", category: "鲜果时光", practice: "做牛油果沙拉、配吐司，或打奶昔，绵密醇厚。", rating: "★★★★☆" },
             { id: 351, name: "树莓", category: "鲜果时光", practice: "直接食用，或搭配酸奶、冰淇淋，也可做树莓酱、树莓慕斯。", rating: "★★★★★" },
         ];
+
+        // 全局变量（新增搜索关键词）
         let currentCategory = "全部";
         let selected = new Map();
         let orders = [];
-
-        // 渲染分类
-        function renderCats(){
-            const bar = document.getElementById("categoryBar");
-            bar.innerHTML = "";
-            ["全部","中餐","西餐","甜点","鲜果时光"].forEach(c => {
-                const b = document.createElement("div");
-                b.className = "cat-btn";
-                if(c===currentCategory) b.classList.add("active");
-                b.innerText = c;
-                b.onclick = ()=>{ currentCategory=c; renderCats(); renderDishes(); };
-                bar.appendChild(b);
+        let realtimeChannel = null;
+        let searchKeyword = ""; // 【新增】搜索关键词
+    
+        // DOM 元素（新增搜索框）
+        const dishesGrid = document.getElementById("dishesGrid");
+        const categoryBar = document.getElementById("categoryBar");
+        const orderDateInput = document.getElementById("orderDate");
+        const submitBtn = document.getElementById("submitOrderBtn");
+        const dishSearchInput = document.getElementById("dishSearchInput"); // 【新增】搜索框
+        // （此处补充你原有模态框、浮动面板等DOM元素获取代码）
+    
+        // ========== 新增：搜索功能处理 ==========
+        function handleSearchInput() {
+            searchKeyword = dishSearchInput.value.trim().toLowerCase();
+            renderDishes(); // 输入实时更新菜品列表
+        }
+    
+        // 分类渲染（更新为支持所有新分类）
+        function renderCategories() {
+            const cats = ["全部", "中餐", "西餐", "甜点", "鲜果时光"];
+            categoryBar.innerHTML = '';
+            cats.forEach(cat => {
+                const btn = document.createElement('div');
+                btn.classList.add('cat-btn');
+                if (cat === currentCategory) btn.classList.add('active');
+                btn.innerText = cat;
+                btn.addEventListener('click', () => {
+                    currentCategory = cat;
+                    renderCategories();
+                    renderDishes(); // 切换分类后重新渲染（保留搜索）
+                });
+                categoryBar.appendChild(btn);
             });
         }
-
-        // 渲染菜品
-        function renderDishes(){
-            const grid = document.getElementById("dishesGrid");
-            grid.innerHTML = "";
-            const list = currentCategory==="全部" ? [...FULL_MENU] : FULL_MENU.filter(x=>x.category===currentCategory);
-            list.forEach(d => {
-                const card = document.createElement("div");
-                card.className = "dish-card";
-                const tag = getSeasonalTag(d.category,d.name);
-                card.innerHTML = `
-                    <div class="dish-name">${d.name} ${tag?`<span class='season-tag'>${tag}</span>`:""}</div>
-                    <div class="rating">${d.rating}</div>
-                    <div style="font-size:0.7rem;background:#e9f3e4;padding:0.2rem 0.6rem;border-radius:30px;">${d.category}</div>
-                    <div class="checkbox-area"><input type="checkbox" id="c${d.id}" ${selected.get(d.id)?"checked":""}><label for="c${d.id}">✅ 点这道菜</label></div>
-                    <button class="detail-btn" data-name="${d.name}" data-practice="${d.practice}">📖 做法 Tips </button>
+    
+        // 菜品渲染（修改：结合分类+搜索筛选）
+        function renderDishes() {
+            // 1. 先按分类筛选
+            let filtered = currentCategory === "全部" ? [...FULL_MENU] : FULL_MENU.filter(d => d.category === currentCategory);
+            // 2. 再按搜索关键词筛选（不区分大小写）
+            if (searchKeyword) {
+                filtered = filtered.filter(dish => dish.name.toLowerCase().includes(searchKeyword));
+            }
+            // 3. 渲染菜品
+            dishesGrid.innerHTML = '';
+            // 无结果提示
+            if (filtered.length === 0) {
+                dishesGrid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #548a54;">
+                        📭 未找到相关菜品<br>
+                        试试搜索其他关键词（如：牛排、芒果布丁、草莓）
+                    </div>
                 `;
-                card.querySelector("input").onchange = e=>selected.set(d.id,e.target.checked);
-                card.querySelector(".detail-btn").onclick = e=>alert(`🍳 ${e.target.dataset.name}\n做法：${e.target.dataset.practice}`);
-                grid.appendChild(card);
+                return;
+            }
+            // 正常渲染菜品（保留原有逻辑）
+            filtered.forEach(dish => {
+                const isChecked = selected.get(dish.id) === true;
+                const card = document.createElement('div');
+                card.className = 'dish-card';
+                card.innerHTML = `
+                    <div class="dish-name">${escapeHtml(dish.name)}</div>
+                    <div class="rating">${dish.rating}</div>
+                    <div class="cat-tag">${dish.category}</div>
+                    <div class="checkbox-area">
+                        <input type="checkbox" id="chk_${dish.id}" ${isChecked ? 'checked' : ''}>
+                        <label for="chk_${dish.id}">✅ 点这道菜</label>
+                    </div>
+                    <button class="detail-btn" data-practice="${escapeHtml(dish.practice)}" data-name="${escapeHtml(dish.name)}">📖 做法 Tips</button>
+                `;
+                const chk = card.querySelector('input');
+                chk.addEventListener('change', () => {
+                    selected.set(dish.id, chk.checked);
+                });
+                const detailBtn = card.querySelector('.detail-btn');
+                detailBtn.addEventListener('click', () => {
+                    const name = detailBtn.getAttribute('data-name');
+                    const practice = detailBtn.getAttribute('data-practice');
+                    alert(`🍳 ${name}\n做法：${practice}`);
+                });
+                dishesGrid.appendChild(card);
             });
         }
+    
+        // 工具函数
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+    
+        // let currentCategory = "全部";
+        // let selected = new Map();
+        // let orders = [];
+
+        // // 渲染分类
+        // function renderCats(){
+        //     const bar = document.getElementById("categoryBar");
+        //     bar.innerHTML = "";
+        //     ["全部","中餐","西餐","甜点","鲜果时光"].forEach(c => {
+        //         const b = document.createElement("div");
+        //         b.className = "cat-btn";
+        //         if(c===currentCategory) b.classList.add("active");
+        //         b.innerText = c;
+        //         b.onclick = ()=>{ currentCategory=c; renderCats(); renderDishes(); };
+        //         bar.appendChild(b);
+        //     });
+        // }
+
+        // // 渲染菜品
+        // function renderDishes(){
+        //     const grid = document.getElementById("dishesGrid");
+        //     grid.innerHTML = "";
+        //     const list = currentCategory==="全部" ? [...FULL_MENU] : FULL_MENU.filter(x=>x.category===currentCategory);
+        //     list.forEach(d => {
+        //         const card = document.createElement("div");
+        //         card.className = "dish-card";
+        //         const tag = getSeasonalTag(d.category,d.name);
+        //         card.innerHTML = `
+        //             <div class="dish-name">${d.name} ${tag?`<span class='season-tag'>${tag}</span>`:""}</div>
+        //             <div class="rating">${d.rating}</div>
+        //             <div style="font-size:0.7rem;background:#e9f3e4;padding:0.2rem 0.6rem;border-radius:30px;">${d.category}</div>
+        //             <div class="checkbox-area"><input type="checkbox" id="c${d.id}" ${selected.get(d.id)?"checked":""}><label for="c${d.id}">✅ 点这道菜</label></div>
+        //             <button class="detail-btn" data-name="${d.name}" data-practice="${d.practice}">📖 做法 Tips </button>
+        //         `;
+        //         card.querySelector("input").onchange = e=>selected.set(d.id,e.target.checked);
+        //         card.querySelector(".detail-btn").onclick = e=>alert(`🍳 ${e.target.dataset.name}\n做法：${e.target.dataset.practice}`);
+        //         grid.appendChild(card);
+        //     });
+        // }
 
         // 日期
         function updateDate(){
-            const now = new Date();
-            const y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,"0"), d = String(now.getDate()).padStart(2,"0");
-            const wd = ["周日","周一","周二","周三","周四","周五","周六"][now.getDay()];
-            document.getElementById("currentDateDisplay").innerHTML = `${y}.${m}.${d} <span>${wd}</span>`;
-            const today = `${y}-${m}-${d}`;
-            const max = new Date(now); max.setDate(now.getDate()+7);
-            const ipt = document.getElementById("orderDate");
-            ipt.min = today; ipt.max = max.toISOString().slice(0,10);
-            if(!ipt.value) ipt.value = today;
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2,'0');
+            const dd = String(today.getDate()).padStart(2,'0');
+            const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
+            const weekday = weekdays[today.getDay()];
+            document.getElementById("currentDateDisplay").innerHTML = `${yyyy}.${mm}.${dd} <span>${weekday}</span>`;
+            const todayStr = `${yyyy}-${mm}-${dd}`;
+            const maxDate = new Date(today);
+            maxDate.setDate(today.getDate() + 7);
+            const maxStr = maxDate.toISOString().slice(0,10);
+            orderDateInput.min = todayStr;
+            orderDateInput.max = maxStr;
+            if (!orderDateInput.value) orderDateInput.value = todayStr;
         }
 
         // 订单加载
@@ -909,7 +1055,9 @@
 
         // 初始化
         async function init(){
-            updateDate(); renderCats(); renderDishes();
+            updateDate(); //renderCats(); renderDishes();
+            renderCategories();
+            renderDishes();
             await loadOrders();
             loadList("todo","todoList");
             loadList("wish","wishList");
@@ -919,7 +1067,8 @@
             document.getElementById("proceedConfirmBtn").onclick = submitOrder;
             document.getElementById("cancelConfirmBtn").onclick = ()=>document.getElementById("coolConfirmModal").style.display="none";
             document.getElementById("refreshFloatBtn").onclick = loadOrders;
-            
+            dishSearchInput.addEventListener('input', handleSearchInput);
+
             // 折叠历史
             let coll = false;
             document.getElementById("floatHeader").onclick = ()=>{
