@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>家庭点餐系统 · 待办 + 心愿 · 实时同步</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <!--<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">-->
+    <link href="https://fonts.loli.net/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- 引入 SHA-256 哈希库 -->
     <script src="https://cdn.jsdelivr.net/npm/js-sha256@0.10.1/build/sha256.min.js"></script>
@@ -209,20 +210,48 @@
             gap: 0.8rem;
             flex-wrap: wrap;
         }
-        .list-item-remark {
-            font-size: 0.75rem;
-            color: #555;
-            margin-top: 0.4rem;
-            padding: 0.4rem 0.6rem;
-            background: #e8f5e9;
-            border-radius: 8px;
+
+        /* 多条评论样式 */
+        .comment-block {
+            margin-top: 8px;
+            padding-left: 8px;
+            border-left: 2px solid #a8d5a2;
         }
-        .list-item-remark-meta {
-            font-size: 0.65rem;
-            color: #777;
-            margin-top: 0.2rem;
+        .comment-item {
+            background: #e8f5e9;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            margin-bottom: 4px;
             display: flex;
-            gap: 0.6rem;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .comment-content {
+            flex: 1;
+            margin-right: 8px;
+        }
+        .comment-actions {
+            display: flex;
+            gap: 4px;
+        }
+        .comment-edit-btn {
+            background: #3498db;
+            border: none;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            color: white;
+            cursor: pointer;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .comment-meta {
+            font-size: 0.65rem;
+            color: #666;
+            margin-top: 2px;
         }
 
         /* 编辑弹窗 */
@@ -243,6 +272,9 @@
         .modal-actions { display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem; }
 
         /* 悬浮按钮（仅点餐页） */
+        #editCommentModal .modal-form-textarea {
+            min-height: 100px;
+        }
         .floating-submit { position: fixed; bottom: 24px; right: 24px; z-index: 9999; background: #2e7d32; color: white; border-radius: 50px; padding: 14px 18px; font-size: 14px; font-weight: 600; box-shadow: 0 8px 20px rgba(46, 125, 50, 0.3); cursor: pointer; transition: all 0.25s ease; white-space: nowrap; overflow: hidden; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; }
         .floating-submit:hover { width: 180px; background: #1e5622; transform: translateY(-3px); box-shadow: 0 12px 24px rgba(46, 125, 50, 0.4); }
         .floating-submit .icon { font-size: 22px; }
@@ -281,7 +313,21 @@
         <div class="password-card">
             <h2 class="password-title">🔒 家庭点餐系统</h2>
             <div class="password-error" id="passwordError">密码错误，请重试</div>
-            <input type="password" class="password-input" id="passwordInput" placeholder="请输入访问密码">
+             <!-- 密码框 + 显示隐藏按钮 组合 -->
+            <div style="position: relative; width: 100%;">
+                <input type="password" class="password-input" id="passwordInput" placeholder="请输入访问密码">
+                <span id="togglePassword" style="
+                    position: absolute;
+                    right: 1rem;
+                    top: 50%;
+                    transform: translateY(-80%);
+                    cursor: pointer;
+                    font-size: 1.2rem;
+                    color: #2e7d32;
+                ">👁️</span>
+            </div>
+            <!--<input type="password" class="password-input" id="passwordInput" placeholder="请输入访问密码">-->
+            
             <button class="password-btn" id="passwordSubmit">验证密码</button>
         </div>
     </div>
@@ -373,17 +419,17 @@
         </div>
     </div>
 
-    <!-- 编辑 & 备注 弹窗 -->
+    <!-- 编辑事项 + 添加评论弹窗 -->
     <div id="editModal" class="cool-modal">
         <div class="cool-modal-card">
-            <h3 class="modal-title">📝 编辑内容</h3>
+            <h3 class="modal-title">📝 编辑 / 添加评论</h3>
             <div class="modal-form-group">
                 <label>内容</label>
                 <input type="text" id="editContent" class="modal-form-input">
             </div>
             <div class="modal-form-group">
-                <label>备注（可选）</label>
-                <textarea id="editRemark" class="modal-form-textarea" placeholder="添加备注信息…"></textarea>
+                <label>添加评论（永久保存，不覆盖）</label>
+                <textarea id="editRemark" class="modal-form-textarea" placeholder="输入评论，每条独立保存…"></textarea>
             </div>
             <div class="modal-actions">
                 <button id="cancelEdit" style="background:#999;">取消</button>
@@ -391,6 +437,24 @@
             </div>
             <input type="hidden" id="editId">
             <input type="hidden" id="editType">
+        </div>
+    </div>
+
+    <!-- 新增：修改单条备注弹窗 -->
+    <div id="editCommentModal" class="cool-modal">
+        <div class="cool-modal-card">
+            <h3 class="modal-title">✏️ 修改备注</h3>
+            <div class="modal-form-group">
+                <label>备注内容</label>
+                <textarea id="editCommentContent" class="modal-form-textarea" placeholder="修改备注内容…"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button id="cancelEditComment" style="background:#999;">取消</button>
+                <button id="saveEditComment" style="background:#2e7d32;">保存修改</button>
+            </div>
+            <input type="hidden" id="editCommentType">
+            <input type="hidden" id="editCommentId">
+            <input type="hidden" id="editCommentIndex">
         </div>
     </div>
 
@@ -413,7 +477,7 @@
 
             if (inputHash === CORRECT_PASSWORD_HASH) {
                 passwordLock.style.display = 'none';
-                localStorage.setItem('hasAccess', 'true');
+                sessionStorage.setItem('hasAccess', 'true');
                 showToast('验证成功，欢迎使用！', 'success');
             } else {
                 passwordError.style.display = 'block';
@@ -427,7 +491,7 @@
 
         // 检查是否已经登录过
         document.addEventListener('DOMContentLoaded', function() {
-            const hasAccess = localStorage.getItem('hasAccess');
+            const hasAccess = sessionStorage.getItem('hasAccess');
             const passwordLock = document.getElementById('passwordLock');
             
             if (hasAccess === 'true') {
@@ -442,6 +506,14 @@
             });
         });
         
+        // ===== 密码可见/隐藏切换 =====
+        document.getElementById('togglePassword').addEventListener('click', function () {
+            const passInput = document.getElementById('passwordInput');
+            const type = passInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passInput.setAttribute('type', type);
+            this.textContent = type === 'text' ? '🙈' : '👁️';
+        });
+
         // ===== 原有功能代码 =====
         // 提醒
         function showToast(message, type = "info") {
@@ -911,20 +983,46 @@
         }
 
         // ==================== 待办 & 心愿 逻辑 ====================
+        function renderComments(item) {
+            const remarks = item.remark_by || [];
+            const times = item.remark_updated_at || [];
+            const contents = (item.remark || "").split("\n---\n").filter(Boolean);
+            
+            let html = "";
+            for (let i = 0; i < remarks.length; i++) {
+                if (remarks[i] && contents[i]) {
+                    html += `
+                    <div class="comment-item">
+                        <div class="comment-content">
+                            ${contents[i]}
+                            <div class="comment-meta">
+                                👤 ${remarks[i]} • 📅 ${formatDate(times[i])}
+                            </div>
+                        </div>
+                        <div class="comment-actions">
+                            <button class="comment-edit-btn" 
+                                data-type="${item.type}" 
+                                data-id="${item.id}" 
+                                data-index="${i}"
+                                data-content="${contents[i]}">
+                                编辑
+                            </button>
+                        </div>
+                    </div>
+                    `;
+                }
+            }
+            return html ? `<div class="comment-block">${html}</div>` : "";
+        }
+
         async function loadList(type, domId){
-            const { data } = await supabaseClient
-                .from(type)
-                .select("*")
-                .order("created_at", { ascending: false });
-
-            const list = data || [];
+            const { data: items } = await supabaseClient.from(type).select("*").order("created_at",{ascending:false});
             const dom = document.getElementById(domId);
-
-            dom.innerHTML = list.map(item => {
-                const createdAt = formatDate(item.created_at);
-                const completedAt = item.completed_at ? formatDate(item.completed_at) : "";
-                const remarkUpdatedAt = item.remark_updated_at ? formatDate(item.remark_updated_at) : "";
-                return `
+            
+            // 给每个item添加type属性，用于评论渲染
+            const itemsWithType = (items||[]).map(item => ({ ...item, type }));
+            
+            dom.innerHTML = itemsWithType.map(item => `
                 <div class="list-item ${item.is_completed ? 'completed' : ''}">
                     <div class="list-item-left">
                         <input type="checkbox" class="list-item-checkbox" data-type="${type}" data-id="${item.id}" ${item.is_completed ? 'checked' : ''}>
@@ -932,121 +1030,149 @@
                             <div class="list-item-text">${item.content}</div>
                             <div class="list-item-meta">
                                 <span>👤 ${item.created_by}</span>
-                                <span>📅 ${createdAt}</span>
-                                ${completedAt ? `<span>✅ ${completedAt}</span>` : ''}
+                                <span>📅 ${formatDate(item.created_at)}</span>
+                                ${item.completed_at ? `<span>✅ ${formatDate(item.completed_at)}</span>` : ''}
                             </div>
-                            ${item.remark ? `
-                            <div class="list-item-remark">
-                                💬 ${item.remark}
-                                <div class="list-item-remark-meta">
-                                    <span>备注人：${item.remark_by || '未知'}</span>
-                                    ${remarkUpdatedAt ? `<span>备注时间：${remarkUpdatedAt}</span>` : ''}
-                                </div>
-                            </div>` : ''}
+                            ${renderComments(item)}
                         </div>
                     </div>
                     <div class="list-item-actions">
                         <button class="list-item-edit" data-type="${type}" data-id="${item.id}">📝</button>
                         <button class="list-item-delete" data-type="${type}" data-id="${item.id}">🗑️</button>
                     </div>
-                </div>`;
-            }).join('');
+                </div>
+            `).join('');
 
-            // 完成状态切换
+            // 绑定事项完成状态
             dom.querySelectorAll('.list-item-checkbox').forEach(cb => {
                 cb.onchange = async () => {
-                    const updateData = {
+                    await supabaseClient.from(cb.dataset.type).update({
                         is_completed: cb.checked,
                         completed_at: cb.checked ? new Date() : null
-                    };
-                    await supabaseClient.from(cb.dataset.type).update(updateData).eq('id', cb.dataset.id);
+                    }).eq('id', cb.dataset.id);
                     loadList(type, domId);
                 };
             });
 
-            // 编辑
+            // 绑定事项编辑
             dom.querySelectorAll('.list-item-edit').forEach(btn => {
                 btn.onclick = async () => {
                     const { data } = await supabaseClient.from(btn.dataset.type).select('*').eq('id', btn.dataset.id).single();
                     document.getElementById('editId').value = btn.dataset.id;
                     document.getElementById('editType').value = btn.dataset.type;
                     document.getElementById('editContent').value = data.content;
-                    document.getElementById('editRemark').value = data.remark || '';
+                    document.getElementById('editRemark').value = '';
                     document.getElementById('editModal').style.display = 'flex';
                 };
             });
 
-            // 删除
+            // 绑定事项删除
             dom.querySelectorAll('.list-item-delete').forEach(btn => {
                 btn.onclick = async () => {
-                    if (!confirm('确定删除？')) return;
+                    if(!confirm('确定删除？')) return;
                     await supabaseClient.from(btn.dataset.type).delete().eq('id', btn.dataset.id);
-                    loadList('todo', 'todoList');
-                    loadList('wish', 'wishList');
+                    loadList('todo','todoList');
+                    loadList('wish','wishList');
+                };
+            });
+
+            // 绑定备注修改按钮
+            dom.querySelectorAll('.comment-edit-btn').forEach(btn => {
+                btn.onclick = () => {
+                    document.getElementById('editCommentType').value = btn.dataset.type;
+                    document.getElementById('editCommentId').value = btn.dataset.id;
+                    document.getElementById('editCommentIndex').value = btn.dataset.index;
+                    document.getElementById('editCommentContent').value = btn.dataset.content;
+                    document.getElementById('editCommentModal').style.display = 'flex';
                 };
             });
         }
 
-        // 保存编辑（同时保存备注人）
+        // 保存：追加评论，不覆盖
         document.getElementById('saveEdit').onclick = async () => {
             const id = document.getElementById('editId').value;
             const type = document.getElementById('editType').value;
             const content = document.getElementById('editContent').value.trim();
-            const remark = document.getElementById('editRemark').value.trim();
+            const newRemark = document.getElementById('editRemark').value.trim();
 
-            if (!content) {
-                showToast('内容不能为空', 'warning');
-                return;
+            if(!content) { showToast('内容不能为空','warning'); return; }
+
+            const { data: item } = await supabaseClient.from(type).select('*').eq('id', id).single();
+            
+            const updateData = { content };
+
+            if(newRemark) {
+                const oldRemark = item.remark || '';
+                const oldBy = item.remark_by || [];
+                const oldTime = item.remark_updated_at || [];
+
+                updateData.remark = oldRemark ? oldRemark + '\n---\n' + newRemark : newRemark;
+                updateData.remark_by = [...oldBy, getCurrentUser()];
+                updateData.remark_updated_at = [...oldTime, new Date()];
             }
-
-            const updateData = {
-                content,
-                remark,
-                remark_by: remark ? getCurrentUser() : null, // 只有写了备注才记录备注人
-                remark_updated_at: remark ? new Date() : null
-            };
 
             await supabaseClient.from(type).update(updateData).eq('id', id);
             document.getElementById('editModal').style.display = 'none';
-            loadList('todo', 'todoList');
-            loadList('wish', 'wishList');
-            showToast('✅ 保存成功', 'success');
+            loadList('todo','todoList');
+            loadList('wish','wishList');
+            showToast('✅ 保存成功','success');
         };
 
-        // 取消编辑
+        // 新增：保存修改的单条备注
+        document.getElementById('saveEditComment').onclick = async () => {
+            const type = document.getElementById('editCommentType').value;
+            const id = document.getElementById('editCommentId').value;
+            const index = parseInt(document.getElementById('editCommentIndex').value);
+            const newContent = document.getElementById('editCommentContent').value.trim();
+
+            if(!newContent) { showToast('备注内容不能为空','warning'); return; }
+
+            const { data: item } = await supabaseClient.from(type).select('*').eq('id', id).single();
+            
+            // 获取原有数据并修改指定索引的备注
+            const oldRemark = item.remark || '';
+            const oldBy = item.remark_by || [];
+            const oldTime = item.remark_updated_at || [];
+            const contents = oldRemark.split("\n---\n").filter(Boolean);
+
+            // 更新对应索引的内容
+            contents[index] = newContent;
+            
+            const updateData = {
+                remark: contents.join("\n---\n"),
+                remark_updated_at: [...oldTime] // 保留原时间，只改内容
+            };
+
+            await supabaseClient.from(type).update(updateData).eq('id', id);
+            document.getElementById('editCommentModal').style.display = 'none';
+            loadList(type, type === 'todo' ? 'todoList' : 'wishList');
+            showToast('✅ 备注修改成功','success');
+        };
+
         document.getElementById('cancelEdit').onclick = () => {
             document.getElementById('editModal').style.display = 'none';
         };
 
-        // 提交待办
+        document.getElementById('cancelEditComment').onclick = () => {
+            document.getElementById('editCommentModal').style.display = 'none';
+        };
+
         document.getElementById("todoSubmit").onclick = async ()=>{
-            const ipt = document.getElementById("todoInput");
-            const c = ipt.value.trim();
+            const c = document.getElementById("todoInput").value.trim();
             if(!c){ showToast("请输入内容","warning"); return; }
-            await supabaseClient.from("todo").insert([{
-                content: c,
-                created_by: getCurrentUser()
-            }]);
-            ipt.value = "";
-            loadList("todo","todoList");
-            showToast("✅ 待办已上传","success");
+            await supabaseClient.from("todo").insert([{content:c,created_by:getCurrentUser()}]);
+            document.getElementById("todoInput").value = "";
+            loadList("todo","todoList"); showToast("✅ 待办已上传","success");
         };
 
-        // 提交心愿
         document.getElementById("wishSubmit").onclick = async ()=>{
-            const ipt = document.getElementById("wishInput");
-            const c = ipt.value.trim();
+            const c = document.getElementById("wishInput").value.trim();
             if(!c){ showToast("请输入心愿","warning"); return; }
-            await supabaseClient.from("wish").insert([{
-                content: c,
-                created_by: getCurrentUser()
-            }]);
-            ipt.value = "";
-            loadList("wish","wishList");
-            showToast("✅ 心愿已上传","success");
+            await supabaseClient.from("wish").insert([{content:c,created_by:getCurrentUser()}]);
+            document.getElementById("wishInput").value = "";
+            loadList("wish","wishList"); showToast("✅ 心愿已上传","success");
         };
 
-        // 实时监听
         function subscribe(){
             supabaseClient.channel("all").on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>loadOrders()).subscribe();
             supabaseClient.channel("todo").on("postgres_changes",{event:"*",schema:"public",table:"todo"},()=>loadList("todo","todoList")).subscribe();
@@ -1075,15 +1201,15 @@
                 coll = !coll;
                 const c = document.getElementById("floatContent");
                 const i = document.getElementById("toggleFloatIcon");
-                if(coll){ c.classList.add("collapsed"); i.innerText="▲"; }
-                else{ c.classList.remove("collapsed"); i.innerText="▼"; }
+                coll ? (c.classList.add("collapsed"),i.innerText="▲") : (c.classList.remove("collapsed"),i.innerText="▼");
             };
 
             // 点击空白关闭弹窗
             document.getElementById('editModal').onclick = (e) => {
-                if (e.target === document.getElementById('editModal')) {
-                    document.getElementById('editModal').style.display = 'none';
-                }
+                if (e.target === document.getElementById('editModal')) document.getElementById('editModal').style.display = 'none';
+            };
+            document.getElementById('editCommentModal').onclick = (e) => {
+                if (e.target === document.getElementById('editCommentModal')) document.getElementById('editCommentModal').style.display = 'none';
             };
 
             setTimeout(()=>showToast("🍃 系统加载完成","success"),800);
