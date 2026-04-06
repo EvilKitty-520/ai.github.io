@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>家庭点餐系统 · 待办 + 心愿 · 实时同步</title>
+    <title>家庭点餐系统 · 待办 + 心愿 + 影视 · 实时同步</title>
     <!--<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">-->
     <link href="https://fonts.loli.net/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -360,6 +360,7 @@
             <div class="main-tab active" data-page="order">🍽️ 点餐系统</div>
             <div class="main-tab" data-page="todo">📋 见面待办 list</div>
             <div class="main-tab" data-page="wish">🎁 心愿池 list</div>
+            <div class="main-tab" data-page="movie">🎬 银幕时光 list</div>
         </div>
 
         <!-- 点餐页面 -->
@@ -398,7 +399,17 @@
             </div>
         </div>
 
-        <footer>🌱 食光共度 · 待办 + 心愿 · Supabase 实时同步</footer>
+        <div id="page-movie" class="page">
+            <div class="list-container">
+                <div class="list-title">🎬 银幕时光 List</div>
+                <div class="list-input-area">
+                    <input type="text" class="list-input" id="movieInput" placeholder="输入想看的电影/剧集…">
+                    <button class="list-submit-btn" id="movieSubmit">✅ 添加影视</button>
+                </div>
+                <div class="list-items" id="movieList"></div>
+            </div>
+        </div>
+        <footer>🌱 食光共度 · 待办 + 心愿 + 影视 · Supabase 实时同步</footer>
     </div>
 
     <!-- 历史记录（仅点餐页） -->
@@ -530,9 +541,20 @@
         }
 
         // 格式化日期 YYYY-MM-DD
-        function formatDate(d){
-            if(!d) return "";
-            return new Date(d).toISOString().slice(0,10);
+        function formatDate(d) {
+            if (!d) return "";
+            try {
+                const date = new Date(d);
+                return new Intl.DateTimeFormat('zh-CN', {
+                    timeZone: 'Asia/Shanghai',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour12: false
+                }).format(date).replace(/\//g, '-');
+            } catch (e) {
+                return "";
+            }
         }
 
         // Supabase 初始化（避免重复声明）
@@ -1073,6 +1095,7 @@
                     await supabaseClient.from(btn.dataset.type).delete().eq('id', btn.dataset.id);
                     loadList('todo','todoList');
                     loadList('wish','wishList');
+                    loadList('movie','movieList');
                 };
             });
 
@@ -1173,10 +1196,18 @@
             loadList("wish","wishList"); showToast("✅ 心愿已上传","success");
         };
 
+        document.getElementById("movieSubmit").onclick = async ()=>{
+            const c = document.getElementById("movieInput").value.trim();
+            if(!c){ showToast("请输入影视名称","warning"); return; }
+            await supabaseClient.from("movie").insert([{content:c,created_by:getCurrentUser()}]);
+            document.getElementById("movieInput").value = "";
+            loadList("movie","movieList"); showToast("✅ 影视已添加","success");
+        };
         function subscribe(){
             supabaseClient.channel("all").on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>loadOrders()).subscribe();
             supabaseClient.channel("todo").on("postgres_changes",{event:"*",schema:"public",table:"todo"},()=>loadList("todo","todoList")).subscribe();
             supabaseClient.channel("wish").on("postgres_changes",{event:"*",schema:"public",table:"wish"},()=>loadList("wish","wishList")).subscribe();
+            supabaseClient.channel("movie").on("postgres_changes",{event:"*",schema:"public",table:"movie"},()=>loadList("movie","movieList")).subscribe();
         }
 
         // 初始化
@@ -1187,6 +1218,7 @@
             await loadOrders();
             loadList("todo","todoList");
             loadList("wish","wishList");
+            loadList("movie","movieList"); 
             subscribe();
 
             document.getElementById("floatSubmitBtn").onclick = showConfirm;
