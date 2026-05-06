@@ -139,6 +139,16 @@
             color: #2b6236;
             pointer-events: none; /* 不遮挡输入框点击 */
         }
+        /* 置顶高亮样式 */
+        .list-item.is-top:not(.completed) {
+          border-left: 3px solid #ff9800 !important;
+          background-color: #fff9e6 !important;
+        }
+        /* 已完成的置顶按钮变灰 */
+        .list-item-top:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
 
         .category-tabs { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: 1.2rem 0 1.8rem 0; border-bottom: 1px solid #c2e0bc; padding-bottom: 0.6rem; }
         .cat-btn { background: #e0f1db; padding: 0.5rem 1.5rem; border-radius: 40px; font-weight: 600; cursor: pointer; color: #2a5a2a; }
@@ -1046,13 +1056,27 @@
             
             // 给每个item添加type属性，用于评论渲染
             const itemsWithType = (items||[]).map(item => ({ ...item, type }));
+
+            // ======================
+            // 【新增】排序规则：置顶 > 未完成 > 已完成，同状态按时间
+            // ======================
+            const sortedItems = [...itemsWithType].sort((a, b) => {
+                // 已完成一律放最后
+                if (a.is_completed && !b.is_completed) return 1;
+                if (!a.is_completed && b.is_completed) return -1;
+                // 未完成里：置顶优先
+                if (a.is_top && !b.is_top) return -1;
+                if (!a.is_top && b.is_top) return 1;
+                // 同状态按时间倒序
+                return new Date(b.created_at) - new Date(a.created_at);
+            });
             
-            dom.innerHTML = itemsWithType.map(item => `
-                <div class="list-item ${item.is_completed ? 'completed' : ''}">
+            dom.innerHTML = sortedItems.map(item => `
+                <div class="list-item ${item.is_completed ? 'completed' : ''} ${item.is_top ? 'is-top' : ''}">
                     <div class="list-item-left">
                         <input type="checkbox" class="list-item-checkbox" data-type="${type}" data-id="${item.id}" ${item.is_completed ? 'checked' : ''}>
                         <div>
-                            <div class="list-item-text">${item.content}</div>
+                            <div class="list-item-text">${item.content} ${item.is_top && !item.is_completed ? '📌' : ''}</div>
                             <div class="list-item-meta">
                                 <span>👤 ${item.created_by}</span>
                                 <span>📅 ${formatDate(item.created_at)}</span>
@@ -1062,18 +1086,44 @@
                         </div>
                     </div>
                     <div class="list-item-actions">
+                        <!-- 【新增】置顶按钮 -->
+                        <button class="list-item-top" data-type="${type}" data-id="${item.id}" ${item.is_completed ? 'disabled' : ''}>
+                            ${item.is_top ? '取消置顶' : '置顶'}
+                        </button>
                         <button class="list-item-edit" data-type="${type}" data-id="${item.id}">📝</button>
                         <button class="list-item-delete" data-type="${type}" data-id="${item.id}">🗑️</button>
                     </div>
                 </div>
             `).join('');
 
+            // ======================
+            // 【新增】绑定置顶/取消置顶按钮
+            // ======================
+            dom.querySelectorAll('.list-item-top').forEach(btn => {
+                btn.onclick = async () => {
+                    const { data: item } = await supabaseClient.from(btn.dataset.type).select('is_top, is_completed').eq('id', btn.dataset.id).single();
+                    
+                    if (item.is_completed) {
+                        showToast('已完成无法置顶', 'warning');
+                        return;
+                    }
+
+                    await supabaseClient.from(btn.dataset.type).update({
+                        is_top: !item.is_top
+                    }).eq('id', btn.dataset.id);
+                    
+                    showToast(!item.is_top ? '✅ 已置顶' : '已取消置顶', 'success');
+                    loadList(type, domId);
+                };
+            });
+
             // 绑定事项完成状态
             dom.querySelectorAll('.list-item-checkbox').forEach(cb => {
                 cb.onchange = async () => {
                     await supabaseClient.from(cb.dataset.type).update({
                         is_completed: cb.checked,
-                        completed_at: cb.checked ? new Date() : null
+                        completed_at: cb.checked ? new Date() : null,
+                        is_top: cb.checked ? false : undefined // 【新增】完成时自动取消置顶
                     }).eq('id', cb.dataset.id);
                     loadList(type, domId);
                 };
@@ -1171,7 +1221,7 @@
 
             await supabaseClient.from(type).update(updateData).eq('id', id);
             document.getElementById('editCommentModal').style.display = 'none';
-            loadList(type, type === 'todo' ? 'todoList' : 'wishList');
+            loadList(type, type === 'todo' ? 'todoList' : (type === 'wish' ? 'wishList' : 'movieList'));
             showToast('✅ 备注修改成功','success');
         };
 
@@ -1186,7 +1236,7 @@
         document.getElementById("todoSubmit").onclick = async ()=>{
             const c = document.getElementById("todoInput").value.trim();
             if(!c){ showToast("请输入内容","warning"); return; }
-            await supabaseClient.from("todo").insert([{content:c,created_by:getCurrentUser()}]);
+            await supabaseClient.from("todo").insert([{content:c,created_by:getCurrentUser(), is_top: false}]);
             document.getElementById("todoInput").value = "";
             loadList("todo","todoList"); showToast("✅ 待办已上传","success");
         };
@@ -1194,7 +1244,7 @@
         document.getElementById("wishSubmit").onclick = async ()=>{
             const c = document.getElementById("wishInput").value.trim();
             if(!c){ showToast("请输入心愿","warning"); return; }
-            await supabaseClient.from("wish").insert([{content:c,created_by:getCurrentUser()}]);
+            await supabaseClient.from("wish").insert([{content:c,created_by:getCurrentUser(), is_top: false}]);
             document.getElementById("wishInput").value = "";
             loadList("wish","wishList"); showToast("✅ 心愿已上传","success");
         };
@@ -1202,7 +1252,7 @@
         document.getElementById("movieSubmit").onclick = async ()=>{
             const c = document.getElementById("movieInput").value.trim();
             if(!c){ showToast("请输入影视名称","warning"); return; }
-            await supabaseClient.from("movie").insert([{content:c,created_by:getCurrentUser()}]);
+            await supabaseClient.from("movie").insert([{content:c,created_by:getCurrentUser(), is_top: false}]);
             document.getElementById("movieInput").value = "";
             loadList("movie","movieList"); showToast("✅ 影视已添加","success");
         };
