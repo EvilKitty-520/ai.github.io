@@ -2,16 +2,14 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#eaf9e6">
     <title>家庭点餐系统 · 待办 + 心愿 + 影视 · 实时同步</title>
     <!--<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">-->
     <link href="https://fonts.loli.net/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
-    <style>
-      body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
-    </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- 引入 SHA-256 哈希库 -->
-    <script src="https://unpkg.com/js-sha256@0.10.1/build/sha256.min.js"></script>
     <style>
         /* 密码锁样式 */
         .password-lock {
@@ -156,6 +154,7 @@
         .dishes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
         .dish-card { background: white; border-radius: 1.5rem; padding: 1.2rem; box-shadow: 0 8px 18px rgba(50, 70, 30, 0.08); border: 1px solid #d2e8cb; }
         .dish-name { font-size: 1.25rem; font-weight: 700; color: #215c2e; }
+        .cat-tag { font-size: 0.7rem; background: #e9f3e4; padding: 0.2rem 0.6rem; border-radius: 30px; display: inline-block; margin-left: 0.3rem; }
         .rating { background: #fef4e0; padding: 0.2rem 0.6rem; border-radius: 30px; font-size: 0.7rem; display: inline-block; }
         .checkbox-area { margin: 0.7rem 0; display: flex; align-items: center; gap: 0.6rem; }
         .checkbox-area input { width: 1.2rem; height: 1.2rem; accent-color: #2e7d32; }
@@ -316,7 +315,85 @@
         .toast-error { border-left: 5px solid #e74c3c; color: #c0392b; }
         .toast-info { border-left: 5px solid #3498db; color: #2980b9; }
 
-        @media (max-width: 680px) { .main-container { padding: 1rem; } .history-float { width: 280px; } }
+        /* ========== 手机端适配（苹果 + 华为 + 所有手机） ========== */
+        @media (max-width: 768px) {
+            /* 基础布局 */
+            body { padding: 0.5rem; }
+            .main-container { padding: 1rem 0.8rem; border-radius: 1.2rem; }
+
+            /* 头部面板 — 竖排 */
+            .header-panel { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+            .date-badge { text-align: center; font-size: 1rem; }
+            .order-config { flex-direction: column; gap: 0.5rem; border-radius: 1.2rem; padding: 0.6rem 1rem; }
+            .config-item { justify-content: center; }
+            #logoutBtn { align-self: center; }
+
+            /* 主菜单 Tab — 横向滚动 */
+            .main-tabs { flex-wrap: nowrap; overflow-x: auto; gap: 0.5rem; padding-bottom: 0.3rem; -webkit-overflow-scrolling: touch; }
+            .main-tab { white-space: nowrap; padding: 0.5rem 1rem; font-size: 0.85rem; flex-shrink: 0; }
+
+            /* 搜索框 — 手机端始终展开 */
+            .search-wrapper { margin: 0 0 0.8rem 0; width: 100%; }
+            .search-input { width: 100% !important; opacity: 1; }
+
+            /* 分类标签 — 横向滚动 */
+            .category-tabs { flex-wrap: nowrap; overflow-x: auto; gap: 0.5rem; -webkit-overflow-scrolling: touch; }
+            .cat-btn { white-space: nowrap; flex-shrink: 0; font-size: 0.8rem; padding: 0.4rem 1rem; }
+
+            /* 菜品网格 — 单列 */
+            .dishes-grid { grid-template-columns: 1fr; gap: 0.8rem; }
+            .dish-card { padding: 1rem; border-radius: 1rem; }
+            .dish-name { font-size: 1.1rem; }
+
+            /* 密码卡片 */
+            .password-card { padding: 1.8rem; border-radius: 1.5rem; }
+            .password-title { font-size: 1.4rem; }
+
+            /* 待办/心愿/影视 — 列表项 */
+            .list-container { padding: 1rem; border-radius: 1rem; }
+            .list-input-area { flex-direction: column; }
+            .list-submit-btn { width: 100%; padding: 0.7rem; }
+            .list-item { flex-direction: column; gap: 0.5rem; }
+            .list-item-actions { align-self: flex-end; }
+
+            /* 按钮触控优化 — 最小 44px 符合 Apple HIG */
+            button { min-height: 44px; padding: 0.6rem 1.2rem; }
+            .list-item-edit, .list-item-delete, .list-item-top { min-height: 36px; padding: 0.4rem 0.7rem; font-size: 0.75rem; }
+
+            /* 历史面板 — 全宽置底，折叠默认 */
+            .history-float { position: fixed; bottom: 0; left: 0; right: 0; width: 100% !important; border-radius: 1.2rem 1.2rem 0 0; margin-bottom: 0; z-index: 1000; }
+            .float-header { border-radius: 1.2rem 1.2rem 0 0; }
+            .float-content { max-height: 250px; }
+
+            /* 悬浮点餐按钮 — 适配手机 */
+            .floating-submit { bottom: 16px; right: 16px; width: 48px; height: 48px; border-radius: 50%; }
+
+            /* 弹窗 — 全宽 */
+            .cool-modal-card { width: 94%; max-width: none; padding: 1.2rem; border-radius: 1.2rem; }
+            .modal-title { font-size: 1.1rem; }
+            .modal-actions { flex-direction: column; }
+            .modal-actions button { width: 100%; }
+
+            /* Toast — 多行支持 */
+            .toast-notice { width: 90%; white-space: normal; text-align: center; font-size: 0.8rem; }
+
+            /* iPhone 刘海屏安全区 */
+            @supports (padding-bottom: env(safe-area-inset-bottom)) {
+                body { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
+                .history-float { padding-bottom: env(safe-area-inset-bottom); }
+                .floating-submit { bottom: calc(16px + env(safe-area-inset-bottom)); }
+            }
+        }
+
+        /* 小屏手机微调（iPhone SE、旧款华为等 ≤ 375px 宽） */
+        @media (max-width: 400px) {
+            .password-card { padding: 1.2rem; }
+            .password-title { font-size: 1.2rem; }
+            .password-input { font-size: 1rem; padding: 0.8rem; }
+            .dish-name { font-size: 1rem; }
+            .list-item-text { font-size: 0.9rem; }
+            .main-tab { font-size: 0.75rem; padding: 0.4rem 0.7rem; }
+        }
     </style>
 </head>
 
@@ -365,6 +442,7 @@
                 </div>
                 <div class="config-item"><label>📅 日期：</label><input type="date" id="orderDate"></div>
                 <div class="sync-status" id="syncStatus">🔌 连接中...</div>
+                <button id="logoutBtn" style="background:#c0392b;font-size:0.8rem;padding:0.3rem 0.8rem;" onclick="logout()">🚪 退出</button>
             </div>
         </div>
 
@@ -483,28 +561,33 @@
     </div>
 
     <script>
-        // ===== 密码锁核心逻辑 =====
-        // 👇 请修改这里的密码为你想要的密码 👇
-        const CORRECT_PASSWORD_HASH = "b2ca5445f71cf7edfc9cc05df66dee13c4388105a70f7060de101690e6f46865";
+        // ===== 密码锁核心逻辑（Supabase Auth 版本） =====
+        // 邮箱写死在前端是安全的，因为 Supabase RLS 已拦截未登录请求
+        // 👇 请修改这里的邮箱为你在 Supabase Authentication → Users 中创建的用户邮箱 👇
+        const FAMILY_EMAIL = "zhangyiyiyi96@163.com";
 
-
-
-        // 密码验证函数
-        function verifyPassword() {
+        // 密码验证 → Supabase 真实登录
+        async function verifyPassword() {
             const passwordInput = document.getElementById('passwordInput');
             const passwordError = document.getElementById('passwordError');
             const passwordLock = document.getElementById('passwordLock');
             const passwordCard = document.querySelector('.password-card');
-            
-            const inputValue = passwordInput.value.trim();
-            const inputHash = sha256(inputValue); // 对输入密码做哈希
 
-            if (inputHash === CORRECT_PASSWORD_HASH) {
+            const password = passwordInput.value.trim();
+
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: FAMILY_EMAIL,
+                password: password
+            });
+
+            if (!error && data.user) {
                 passwordLock.style.display = 'none';
-                sessionStorage.setItem('hasAccess', 'true');
-                showToast('验证成功，欢迎使用！', 'success');
+                showToast('✅ 登录成功，欢迎使用！', 'success');
             } else {
                 passwordError.style.display = 'block';
+                passwordError.textContent = error?.message === 'Invalid login credentials'
+                    ? '密码错误，请重试'
+                    : (error?.message || '登录失败，请稍后重试');
                 passwordInput.value = '';
                 passwordCard.style.animation = 'shake 0.5s';
                 setTimeout(() => {
@@ -513,15 +596,8 @@
             }
         }
 
-        // 检查是否已经登录过
+        // 初始化密码锁（每次打开页面都需要输入密码）
         document.addEventListener('DOMContentLoaded', function() {
-            const hasAccess = sessionStorage.getItem('hasAccess');
-            const passwordLock = document.getElementById('passwordLock');
-            
-            if (hasAccess === 'true') {
-                passwordLock.style.display = 'none';
-            }
-
             document.getElementById('passwordSubmit').addEventListener('click', verifyPassword);
             document.getElementById('passwordInput').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
@@ -529,7 +605,14 @@
                 }
             });
         });
-        
+
+        // 退出登录（下次访问需要重新输入密码）
+        function logout() {
+            supabaseClient.auth.signOut();
+            document.getElementById('passwordLock').style.display = 'flex';
+            showToast('👋 已退出登录', 'info');
+        }
+
         // ===== 密码可见/隐藏切换 =====
         document.getElementById('togglePassword').addEventListener('click', function () {
             const passInput = document.getElementById('passwordInput');
@@ -794,16 +877,13 @@
         let currentCategory = "全部";
         let selected = new Map();
         let orders = [];
-        let realtimeChannel = null;
-        let searchKeyword = ""; // 【新增】搜索关键词
-    
-        // DOM 元素（新增搜索框）
+        let searchKeyword = ""; // 搜索关键词
+
+        // DOM 元素
         const dishesGrid = document.getElementById("dishesGrid");
         const categoryBar = document.getElementById("categoryBar");
         const orderDateInput = document.getElementById("orderDate");
-        const submitBtn = document.getElementById("submitOrderBtn");
-        const dishSearchInput = document.getElementById("dishSearchInput"); // 【新增】搜索框
-        // （此处补充你原有模态框、浮动面板等DOM元素获取代码）
+        const dishSearchInput = document.getElementById("dishSearchInput");
     
         // ========== 新增：搜索功能处理 ==========
         function handleSearchInput() {
@@ -854,8 +934,9 @@
                 const isChecked = selected.get(dish.id) === true;
                 const card = document.createElement('div');
                 card.className = 'dish-card';
+                const seasonTag = getSeasonalTag(dish.category, dish.name);
                 card.innerHTML = `
-                    <div class="dish-name">${escapeHtml(dish.name)}</div>
+                    <div class="dish-name">${escapeHtml(dish.name)} ${seasonTag ? `<span class='season-tag'>${seasonTag}</span>` : ''}</div>
                     <div class="rating">${dish.rating}</div>
                     <div class="cat-tag">${dish.category}</div>
                     <div class="checkbox-area">
@@ -881,54 +962,16 @@
         // 工具函数
         function escapeHtml(str) {
             if (!str) return '';
-            return str.replace(/[&<>]/g, function(m) {
+            return str.replace(/[&<>"']/g, function(m) {
                 if (m === '&') return '&amp;';
                 if (m === '<') return '&lt;';
                 if (m === '>') return '&gt;';
+                if (m === '"') return '&quot;';
+                if (m === "'") return '&#39;';
                 return m;
             });
         }
     
-        // let currentCategory = "全部";
-        // let selected = new Map();
-        // let orders = [];
-
-        // // 渲染分类
-        // function renderCats(){
-        //     const bar = document.getElementById("categoryBar");
-        //     bar.innerHTML = "";
-        //     ["全部","中餐","西餐","甜点","鲜果时光"].forEach(c => {
-        //         const b = document.createElement("div");
-        //         b.className = "cat-btn";
-        //         if(c===currentCategory) b.classList.add("active");
-        //         b.innerText = c;
-        //         b.onclick = ()=>{ currentCategory=c; renderCats(); renderDishes(); };
-        //         bar.appendChild(b);
-        //     });
-        // }
-
-        // // 渲染菜品
-        // function renderDishes(){
-        //     const grid = document.getElementById("dishesGrid");
-        //     grid.innerHTML = "";
-        //     const list = currentCategory==="全部" ? [...FULL_MENU] : FULL_MENU.filter(x=>x.category===currentCategory);
-        //     list.forEach(d => {
-        //         const card = document.createElement("div");
-        //         card.className = "dish-card";
-        //         const tag = getSeasonalTag(d.category,d.name);
-        //         card.innerHTML = `
-        //             <div class="dish-name">${d.name} ${tag?`<span class='season-tag'>${tag}</span>`:""}</div>
-        //             <div class="rating">${d.rating}</div>
-        //             <div style="font-size:0.7rem;background:#e9f3e4;padding:0.2rem 0.6rem;border-radius:30px;">${d.category}</div>
-        //             <div class="checkbox-area"><input type="checkbox" id="c${d.id}" ${selected.get(d.id)?"checked":""}><label for="c${d.id}">✅ 点这道菜</label></div>
-        //             <button class="detail-btn" data-name="${d.name}" data-practice="${d.practice}">📖 做法 Tips </button>
-        //         `;
-        //         card.querySelector("input").onchange = e=>selected.set(d.id,e.target.checked);
-        //         card.querySelector(".detail-btn").onclick = e=>alert(`🍳 ${e.target.dataset.name}\n做法：${e.target.dataset.practice}`);
-        //         grid.appendChild(card);
-        //     });
-        // }
-
         // 日期
         function updateDate(){
             const today = new Date();
@@ -970,11 +1013,11 @@
             if(list.length===0){ dom.innerHTML = "<div>🌱暂无记录</div>"; return; }
             let html = "";
             list.forEach(o=>{
-                const dishes = o.dishes_list||[];
+                const dishes = (o.dishes_list||[]).map(d => escapeHtml(d));
                 html+=`
                 <div class="record-item-mini">
                     <div style="flex:1">
-                        <div class="record-header-mini"><span>${o.diner}</span><span>${o.order_date}</span></div>
+                        <div class="record-header-mini"><span>${escapeHtml(o.diner)}</span><span>${escapeHtml(o.order_date)}</span></div>
                         <div>${dishes.join("、")}</div>
                     </div>
                     <button class="delete-record-btn" data-id="${o.id}">🗑️删除</button>
@@ -984,14 +1027,18 @@
             document.querySelectorAll(".delete-record-btn").forEach(btn=>{
                 btn.onclick = async ()=>{
                     if(!confirm("确定删除？")) return;
-                    await supabaseClient.from("orders").delete().eq("id",btn.dataset.id);
+                    const { error } = await supabaseClient.from("orders").delete().eq("id",btn.dataset.id);
+                    if(error){ console.error(error); showToast("删除失败","error"); return; }
                     loadOrders();
+                    showToast("✅ 订单已删除","success");
                 };
             });
         }
 
         // 提交订单
+        let isSubmitting = false; // 防重复提交
         async function submitOrder(){
+            if (isSubmitting) return;
             const ids = [];
             for(const [id,v] of selected) if(v) ids.push(id);
             const list = FULL_MENU.filter(x=>ids.includes(x.id));
@@ -1000,7 +1047,10 @@
             const date = document.getElementById("orderDate").value;
             if(!date){ showToast("请选日期","warning"); return; }
             const names = list.map(x=>x.name);
+            isSubmitting = true;
             const { error } = await supabaseClient.from("orders").insert([{diner,order_date:date,dishes_list:names}]);
+            isSubmitting = false;
+            if(error){ showToast("提交失败","error"); return; }
             if(error){ showToast("提交失败","error"); return; }
             selected.clear(); renderDishes();
             showToast("✅ 点餐成功！","success");
@@ -1014,7 +1064,7 @@
             const list = FULL_MENU.filter(x=>ids.includes(x.id));
             if(list.length===0){ showToast("请先选菜","warning"); return; }
             const dom = document.getElementById("confirmDishesList");
-            dom.innerHTML = list.map(x=>`<div>🍽️ ${x.name}</div>`).join("");
+            dom.innerHTML = list.map(x=>`<div>🍽️ ${escapeHtml(x.name)}</div>`).join("");
             document.getElementById("coolConfirmModal").style.display = "flex";
         }
 
@@ -1025,22 +1075,23 @@
             const contents = (item.remark || "").split("\n---\n").filter(Boolean);
             
             let html = "";
-            for (let i = 0; i < remarks.length; i++) {
+            const maxLen = Math.min(remarks.length, contents.length);
+            for (let i = 0; i < maxLen; i++) {
                 if (remarks[i] && contents[i]) {
                     html += `
                     <div class="comment-item">
                         <div class="comment-content">
-                            ${contents[i]}
+                            ${escapeHtml(contents[i])}
                             <div class="comment-meta">
-                                👤 ${remarks[i]} • 📅 ${formatDate(times[i])}
+                                👤 ${escapeHtml(remarks[i])} • 📅 ${formatDate(times[i])}
                             </div>
                         </div>
                         <div class="comment-actions">
-                            <button class="comment-edit-btn" 
-                                data-type="${item.type}" 
-                                data-id="${item.id}" 
+                            <button class="comment-edit-btn"
+                                data-type="${escapeHtml(item.type)}"
+                                data-id="${escapeHtml(item.id)}"
                                 data-index="${i}"
-                                data-content="${contents[i]}">
+                                data-content="${escapeHtml(contents[i])}">
                                 编辑
                             </button>
                         </div>
@@ -1052,8 +1103,9 @@
         }
 
         async function loadList(type, domId){
-            const { data: items } = await supabaseClient.from(type).select("*").order("created_at",{ascending:false});
+            const { data: items, error } = await supabaseClient.from(type).select("*").order("created_at",{ascending:false});
             const dom = document.getElementById(domId);
+            if (error) { console.error(error); dom.innerHTML = '<div style="text-align:center;padding:2rem;color:#e74c3c;">⚠️ 加载失败，请刷新重试</div>'; return; }
             
             // 给每个item添加type属性，用于评论渲染
             const itemsWithType = (items||[]).map(item => ({ ...item, type }));
@@ -1075,24 +1127,23 @@
             dom.innerHTML = sortedItems.map(item => `
                 <div class="list-item ${item.is_completed ? 'completed' : ''} ${item.is_top ? 'is-top' : ''}">
                     <div class="list-item-left">
-                        <input type="checkbox" class="list-item-checkbox" data-type="${type}" data-id="${item.id}" ${item.is_completed ? 'checked' : ''}>
+                        <input type="checkbox" class="list-item-checkbox" data-type="${escapeHtml(type)}" data-id="${escapeHtml(item.id)}" ${item.is_completed ? 'checked' : ''}>
                         <div>
-                            <div class="list-item-text">${item.content} ${item.is_top && !item.is_completed ? '📌' : ''}</div>
+                            <div class="list-item-text">${escapeHtml(item.content)} ${item.is_top && !item.is_completed ? '📌' : ''}</div>
                             <div class="list-item-meta">
-                                <span>👤 ${item.created_by}</span>
+                                <span>👤 ${escapeHtml(item.created_by)}</span>
                                 <span>📅 ${formatDate(item.created_at)}</span>
-                                ${item.completed_at ? `<span>✅ ${formatDate(item.completed_at)}</span>` : ''}
+                                ${item.completed_at ? `<span>✅ ${escapeHtml(formatDate(item.completed_at))}</span>` : ''}
                             </div>
                             ${renderComments(item)}
                         </div>
                     </div>
                     <div class="list-item-actions">
-                        <!-- 【新增】置顶按钮 -->
-                        <button class="list-item-top" data-type="${type}" data-id="${item.id}" ${item.is_completed ? 'disabled' : ''}>
+                        <button class="list-item-top" data-type="${escapeHtml(type)}" data-id="${escapeHtml(item.id)}" ${item.is_completed ? 'disabled' : ''}>
                             ${item.is_top ? '取消置顶' : '置顶'}
                         </button>
-                        <button class="list-item-edit" data-type="${type}" data-id="${item.id}">📝</button>
-                        <button class="list-item-delete" data-type="${type}" data-id="${item.id}">🗑️</button>
+                        <button class="list-item-edit" data-type="${escapeHtml(type)}" data-id="${escapeHtml(item.id)}">📝</button>
+                        <button class="list-item-delete" data-type="${escapeHtml(type)}" data-id="${escapeHtml(item.id)}">🗑️</button>
                     </div>
                 </div>
             `).join('');
@@ -1102,17 +1153,19 @@
             // ======================
             dom.querySelectorAll('.list-item-top').forEach(btn => {
                 btn.onclick = async () => {
-                    const { data: item } = await supabaseClient.from(btn.dataset.type).select('is_top, is_completed').eq('id', btn.dataset.id).single();
-                    
+                    const { data: item, error: queryErr } = await supabaseClient.from(btn.dataset.type).select('is_top, is_completed').eq('id', btn.dataset.id).single();
+                    if (queryErr) { console.error(queryErr); showToast('查询失败', 'error'); return; }
+
                     if (item.is_completed) {
                         showToast('已完成无法置顶', 'warning');
                         return;
                     }
 
-                    await supabaseClient.from(btn.dataset.type).update({
+                    const { error: updateErr } = await supabaseClient.from(btn.dataset.type).update({
                         is_top: !item.is_top
                     }).eq('id', btn.dataset.id);
-                    
+                    if (updateErr) { console.error(updateErr); showToast('操作失败', 'error'); return; }
+
                     showToast(!item.is_top ? '✅ 已置顶' : '已取消置顶', 'success');
                     loadList(type, domId);
                 };
@@ -1121,11 +1174,12 @@
             // 绑定事项完成状态
             dom.querySelectorAll('.list-item-checkbox').forEach(cb => {
                 cb.onchange = async () => {
-                    await supabaseClient.from(cb.dataset.type).update({
+                    const { error } = await supabaseClient.from(cb.dataset.type).update({
                         is_completed: cb.checked,
                         completed_at: cb.checked ? new Date() : null,
                         is_top: cb.checked ? false : undefined // 【新增】完成时自动取消置顶
                     }).eq('id', cb.dataset.id);
+                    if (error) { console.error(error); showToast('更新失败', 'error'); return; }
                     loadList(type, domId);
                 };
             });
@@ -1133,7 +1187,8 @@
             // 绑定事项编辑
             dom.querySelectorAll('.list-item-edit').forEach(btn => {
                 btn.onclick = async () => {
-                    const { data } = await supabaseClient.from(btn.dataset.type).select('*').eq('id', btn.dataset.id).single();
+                    const { data, error } = await supabaseClient.from(btn.dataset.type).select('*').eq('id', btn.dataset.id).single();
+                    if (error) { console.error(error); showToast('加载失败', 'error'); return; }
                     document.getElementById('editId').value = btn.dataset.id;
                     document.getElementById('editType').value = btn.dataset.type;
                     document.getElementById('editContent').value = data.content;
@@ -1146,10 +1201,10 @@
             dom.querySelectorAll('.list-item-delete').forEach(btn => {
                 btn.onclick = async () => {
                     if(!confirm('确定删除？')) return;
-                    await supabaseClient.from(btn.dataset.type).delete().eq('id', btn.dataset.id);
-                    loadList('todo','todoList');
-                    loadList('wish','wishList');
-                    loadList('movie','movieList');
+                    const { error } = await supabaseClient.from(btn.dataset.type).delete().eq('id', btn.dataset.id);
+                    if (error) { console.error(error); showToast('删除失败', 'error'); return; }
+                    loadList(btn.dataset.type, domId);
+                    showToast('✅ 已删除', 'success');
                 };
             });
 
@@ -1174,7 +1229,8 @@
 
             if(!content) { showToast('内容不能为空','warning'); return; }
 
-            const { data: item } = await supabaseClient.from(type).select('*').eq('id', id).single();
+            const { data: item, error: queryErr } = await supabaseClient.from(type).select('*').eq('id', id).single();
+            if (queryErr) { console.error(queryErr); showToast('加载失败', 'error'); return; }
             
             const updateData = { content };
 
@@ -1188,10 +1244,10 @@
                 updateData.remark_updated_at = [...oldTime, new Date()];
             }
 
-            await supabaseClient.from(type).update(updateData).eq('id', id);
+            const { error: updateErr } = await supabaseClient.from(type).update(updateData).eq('id', id);
+            if (updateErr) { console.error(updateErr); showToast('保存失败', 'error'); return; }
             document.getElementById('editModal').style.display = 'none';
-            loadList('todo','todoList');
-            loadList('wish','wishList');
+            loadList(type, type === 'todo' ? 'todoList' : (type === 'wish' ? 'wishList' : 'movieList'));
             showToast('✅ 保存成功','success');
         };
 
@@ -1204,11 +1260,11 @@
 
             if(!newContent) { showToast('备注内容不能为空','warning'); return; }
 
-            const { data: item } = await supabaseClient.from(type).select('*').eq('id', id).single();
+            const { data: item, error: queryErr } = await supabaseClient.from(type).select('*').eq('id', id).single();
+            if (queryErr) { console.error(queryErr); showToast('加载失败', 'error'); return; }
             
             // 获取原有数据并修改指定索引的备注
             const oldRemark = item.remark || '';
-            const oldBy = item.remark_by || [];
             const oldTime = item.remark_updated_at || [];
             const contents = oldRemark.split("\n---\n").filter(Boolean);
 
@@ -1220,7 +1276,8 @@
                 remark_updated_at: [...oldTime] // 保留原时间，只改内容
             };
 
-            await supabaseClient.from(type).update(updateData).eq('id', id);
+            const { error: updateErr } = await supabaseClient.from(type).update(updateData).eq('id', id);
+            if (updateErr) { console.error(updateErr); showToast('修改失败', 'error'); return; }
             document.getElementById('editCommentModal').style.display = 'none';
             loadList(type, type === 'todo' ? 'todoList' : (type === 'wish' ? 'wishList' : 'movieList'));
             showToast('✅ 备注修改成功','success');
@@ -1237,7 +1294,8 @@
         document.getElementById("todoSubmit").onclick = async ()=>{
             const c = document.getElementById("todoInput").value.trim();
             if(!c){ showToast("请输入内容","warning"); return; }
-            await supabaseClient.from("todo").insert([{content:c,created_by:getCurrentUser(), is_top: false}]);
+            const { error } = await supabaseClient.from("todo").insert([{content:c,created_by:getCurrentUser(), is_top: false}]);
+            if(error){ console.error(error); showToast("上传失败","error"); return; }
             document.getElementById("todoInput").value = "";
             loadList("todo","todoList"); showToast("✅ 待办已上传","success");
         };
@@ -1245,7 +1303,8 @@
         document.getElementById("wishSubmit").onclick = async ()=>{
             const c = document.getElementById("wishInput").value.trim();
             if(!c){ showToast("请输入心愿","warning"); return; }
-            await supabaseClient.from("wish").insert([{content:c,created_by:getCurrentUser(), is_top: false}]);
+            const { error } = await supabaseClient.from("wish").insert([{content:c,created_by:getCurrentUser(), is_top: false}]);
+            if(error){ console.error(error); showToast("上传失败","error"); return; }
             document.getElementById("wishInput").value = "";
             loadList("wish","wishList"); showToast("✅ 心愿已上传","success");
         };
@@ -1253,10 +1312,20 @@
         document.getElementById("movieSubmit").onclick = async ()=>{
             const c = document.getElementById("movieInput").value.trim();
             if(!c){ showToast("请输入影视名称","warning"); return; }
-            await supabaseClient.from("movie").insert([{content:c,created_by:getCurrentUser(), is_top: false}]);
+            const { error } = await supabaseClient.from("movie").insert([{content:c,created_by:getCurrentUser(), is_top: false}]);
+            if(error){ console.error(error); showToast("添加失败","error"); return; }
             document.getElementById("movieInput").value = "";
             loadList("movie","movieList"); showToast("✅ 影视已添加","success");
         };
+        // 防抖工具函数
+        function debounce(fn, delay) {
+            let timer;
+            return function(...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+
         function subscribe(){
             supabaseClient.channel("all").on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>loadOrders()).subscribe();
             supabaseClient.channel("todo").on("postgres_changes",{event:"*",schema:"public",table:"todo"},()=>loadList("todo","todoList")).subscribe();
@@ -1266,7 +1335,7 @@
 
         // 初始化
         async function init(){
-            updateDate(); //renderCats(); renderDishes();
+            updateDate();
             renderCategories();
             renderDishes();
             await loadOrders();
@@ -1279,7 +1348,7 @@
             document.getElementById("proceedConfirmBtn").onclick = submitOrder;
             document.getElementById("cancelConfirmBtn").onclick = ()=>document.getElementById("coolConfirmModal").style.display="none";
             document.getElementById("refreshFloatBtn").onclick = loadOrders;
-            dishSearchInput.addEventListener('input', handleSearchInput);
+            dishSearchInput.addEventListener('input', debounce(handleSearchInput, 300));
 
             // 折叠历史
             let coll = false;
