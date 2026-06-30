@@ -214,6 +214,7 @@
             <div class="main-tab" data-page="todo">📋 见面待办 list</div>
             <div class="main-tab" data-page="wish">🎁 心愿池 list</div>
             <div class="main-tab" data-page="movie">🎬 银幕时光 list</div>
+            <div class="main-tab" data-page="travel">🎒 旅行时光 list</div>
         </div>
 
         <div id="page-order" class="page active">
@@ -261,7 +262,18 @@
                 <div class="list-items" id="movieList"></div>
             </div>
         </div>
-        <footer>🌱 食光共度 · 待办 + 心愿 + 影视 · Supabase 实时同步</footer>
+
+        <div id="page-travel" class="page">
+            <div class="list-container">
+                <div class="list-title">🎒 旅行时光 List</div>
+                <div class="list-input-area">
+                    <input type="text" class="list-input" id="travelInput" placeholder="输入旅行目的地…">
+                    <button class="list-submit-btn" id="travelSubmit">✅ 添加目的地</button>
+                </div>
+                <div class="list-items" id="travelList"></div>
+            </div>
+        </div>
+        <footer>🌱 食光共度 · 待办 + 心愿 + 影视 + 旅行 · Supabase 实时同步</footer>
     </div>
 
     <div class="history-float" id="historyFloat">
@@ -387,6 +399,7 @@
             const { data, error } = await supabaseClient.auth.signInWithPassword({ email: FAMILY_EMAIL, password: password });
             if (!error && data.user) {
                 passwordLock.style.display = 'none';
+                sessionStorage.setItem('skipLock', '1');  // 本次浏览器会话内记住登录
                 if (!appInitialized) { init(); appInitialized = true; }
                 showToast('✅ 登录成功，欢迎使用！', 'success');
             } else {
@@ -398,13 +411,23 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 本次浏览器会话内已登录过 → 自动跳过密码锁
+            if (sessionStorage.getItem('skipLock') === '1') {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session) {
+                    document.getElementById('passwordLock').style.display = 'none';
+                    if (!appInitialized) { init(); appInitialized = true; }
+                    return;
+                }
+            }
             document.getElementById('passwordSubmit').addEventListener('click', verifyPassword);
             document.getElementById('passwordInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') verifyPassword(); });
         });
 
         function logout() {
             supabaseClient.auth.signOut();
+            sessionStorage.removeItem('skipLock');
             appInitialized = false;
             document.getElementById('passwordLock').style.display = 'flex';
             showToast('👋 已退出登录', 'info');
@@ -429,6 +452,7 @@
         }
 
         function getCurrentUser() { return document.querySelector("input[name=diner]:checked").value; }
+        function userEmoji(name) { return name === '喵呜' ? '🐱' : name === '蜀黍' ? '🧸' : '👤'; }
 
         function formatDate(d) {
             if (!d) return "";
@@ -699,7 +723,7 @@
             let html = "";
             list.forEach(o => {
                 const dishes = (o.dishes_list || []).map(d => escapeHtml(d));
-                html += `<div class="record-item-mini"><div style="flex:1"><div class="record-header-mini"><span>${escapeHtml(o.diner)}</span><span>${escapeHtml(o.order_date)}</span></div><div>${dishes.join("、")}</div></div><div style="display:flex;gap:0.3rem;"><button class="edit-record-btn" data-id="${o.id}">✏️</button><button class="delete-record-btn" data-id="${o.id}">🗑️</button></div></div>`;
+                html += `<div class="record-item-mini"><div style="flex:1"><div class="record-header-mini"><span>${userEmoji(o.diner)} ${escapeHtml(o.diner)}</span><span>${escapeHtml(o.order_date)}</span></div><div>${dishes.join("、")}</div></div><div style="display:flex;gap:0.3rem;"><button class="edit-record-btn" data-id="${o.id}">✏️</button><button class="delete-record-btn" data-id="${o.id}">🗑️</button></div></div>`;
             });
             dom.innerHTML = html;
             dom.querySelectorAll(".edit-record-btn").forEach(btn => {
@@ -753,7 +777,7 @@
             const maxLen = Math.min(remarks.length, contents.length);
             for (let i = 0; i < maxLen; i++) {
                 if (remarks[i] && contents[i]) {
-                    html += `<div class="comment-item"><div class="comment-content">${escapeHtml(contents[i])}<div class="comment-meta">👤 ${escapeHtml(remarks[i])} • 📅 ${formatDate(times[i])}</div></div><div class="comment-actions"><button class="comment-edit-btn" data-type="${escapeHtml(item.type)}" data-id="${escapeHtml(item.id)}" data-index="${i}" data-content="${escapeHtml(contents[i])}">编辑</button></div></div>`;
+                    html += `<div class="comment-item"><div class="comment-content">${escapeHtml(contents[i])}<div class="comment-meta">${userEmoji(remarks[i])} ${escapeHtml(remarks[i])} • 📅 ${formatDate(times[i])}</div></div><div class="comment-actions"><button class="comment-edit-btn" data-type="${escapeHtml(item.type)}" data-id="${escapeHtml(item.id)}" data-index="${i}" data-content="${escapeHtml(contents[i])}">编辑</button></div></div>`;
                 }
             }
             return html ? `<div class="comment-block">${html}</div>` : "";
@@ -777,12 +801,13 @@
                         <input type="checkbox" class="list-item-checkbox" data-type="${escapeHtml(type)}" data-id="${escapeHtml(item.id)}" ${item.is_completed ? 'checked' : ''}>
                         <div>
                             <div class="list-item-text">${escapeHtml(item.content)} ${item.is_top && !item.is_completed ? '📌' : ''}</div>
-                            <div class="list-item-meta"><span>👤 ${escapeHtml(item.created_by)}</span><span>📅 ${formatDate(item.created_at)}</span>${item.completed_at ? `<span>✅ ${escapeHtml(formatDate(item.completed_at))}</span>` : ''}</div>
+                            ${type === 'travel' && item.remark ? `<div class="travel-note" style="font-size:0.8rem;color:#555;margin-top:0.2rem;">📝 ${escapeHtml((item.remark || '').split('\n---\n')[0])}</div>` : ''}
+                            <div class="list-item-meta"><span>${userEmoji(item.created_by)} ${escapeHtml(item.created_by)}</span><span>📅 ${formatDate(item.created_at)}</span>${item.completed_at ? `<span>✅ ${escapeHtml(formatDate(item.completed_at))}</span>` : ''}</div>
                             ${renderComments(item)}
                         </div>
                     </div>
                     <div class="list-item-actions">
-                        ${type !== 'movie' ? `<button class="list-item-top" data-type="${escapeHtml(type)}" data-id="${escapeHtml(item.id)}" ${item.is_completed ? 'disabled' : ''}>${item.is_top ? '取消置顶' : '置顶'}</button>` : ''}
+                        ${type !== 'movie' && type !== 'travel' ? `<button class="list-item-top" data-type="${escapeHtml(type)}" data-id="${escapeHtml(item.id)}" ${item.is_completed ? 'disabled' : ''}>${item.is_top ? '取消置顶' : '置顶'}</button>` : ''}
                         <button class="list-item-edit" data-type="${escapeHtml(type)}" data-id="${escapeHtml(item.id)}">📝</button>
                         <button class="list-item-delete" data-type="${escapeHtml(type)}" data-id="${escapeHtml(item.id)}">🗑️</button>
                     </div>
@@ -862,7 +887,7 @@
             const { error: updateErr } = await supabaseClient.from(type).update(updateData).eq('id', id);
             if (updateErr) { console.error(updateErr); showToast('保存失败', 'error'); return; }
             document.getElementById('editModal').style.display = 'none';
-            loadList(type, type === 'todo' ? 'todoList' : (type === 'wish' ? 'wishList' : 'movieList'));
+            loadList(type, { todo:'todoList', wish:'wishList', movie:'movieList', travel:'travelList' }[type]);
             showToast('✅ 保存成功', 'success');
         };
 
@@ -882,7 +907,7 @@
             const { error: updateErr } = await supabaseClient.from(type).update(updateData).eq('id', id);
             if (updateErr) { console.error(updateErr); showToast('修改失败', 'error'); return; }
             document.getElementById('editCommentModal').style.display = 'none';
-            loadList(type, type === 'todo' ? 'todoList' : (type === 'wish' ? 'wishList' : 'movieList'));
+            loadList(type, { todo:'todoList', wish:'wishList', movie:'movieList', travel:'travelList' }[type]);
             showToast('✅ 备注修改成功', 'success');
         };
 
@@ -917,12 +942,22 @@
             loadList("movie","movieList"); showToast("✅ 影视已添加","success");
         };
 
+        document.getElementById("travelSubmit").onclick = async () => {
+            const c = document.getElementById("travelInput").value.trim();
+            if (!c) { showToast("请输入旅行目的地","warning"); return; }
+            const { error } = await supabaseClient.from("travel").insert([{content:c, created_by:getCurrentUser(), is_top: false}]);
+            if (error) { console.error(error); showToast("添加失败","error"); return; }
+            document.getElementById("travelInput").value = "";
+            loadList("travel","travelList"); showToast("✅ 目的地已添加","success");
+        };
+
         // ===== 实时订阅 =====
         function subscribe() {
             supabaseClient.channel("all").on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>loadOrders()).subscribe();
             supabaseClient.channel("todo").on("postgres_changes",{event:"*",schema:"public",table:"todo"},()=>loadList("todo","todoList")).subscribe();
             supabaseClient.channel("wish").on("postgres_changes",{event:"*",schema:"public",table:"wish"},()=>loadList("wish","wishList")).subscribe();
             supabaseClient.channel("movie").on("postgres_changes",{event:"*",schema:"public",table:"movie"},()=>loadList("movie","movieList")).subscribe();
+            supabaseClient.channel("travel").on("postgres_changes",{event:"*",schema:"public",table:"travel"},()=>loadList("travel","travelList")).subscribe();
         }
 
         // ===== 初始化 =====
@@ -935,19 +970,14 @@
             loadList("todo","todoList");
             loadList("wish","wishList");
             loadList("movie","movieList");
+            loadList("travel","travelList");
             subscribe();
             document.getElementById("floatSubmitBtn").onclick = showConfirm;
             document.getElementById("proceedConfirmBtn").onclick = submitOrder;
             document.getElementById("cancelConfirmBtn").onclick = () => document.getElementById("coolConfirmModal").style.display = "none";
             document.getElementById("refreshFloatBtn").onclick = loadOrders;
-            document.getElementById("refreshAllBtn").onclick = async () => {
-                showToast("🔄 刷新中…", "info");
-                await loadMenu(); renderDishes();
-                await loadOrders();
-                loadList("todo","todoList");
-                loadList("wish","wishList");
-                loadList("movie","movieList");
-                showToast("✅ 已刷新", "success");
+            document.getElementById("refreshAllBtn").onclick = () => {
+                location.reload();
             };
             dishSearchInput.addEventListener('input', debounce(handleSearchInput, 300));
             let coll = false;
