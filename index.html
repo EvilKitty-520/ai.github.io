@@ -11,16 +11,39 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; background: linear-gradient(135deg, #eaf9e6 0%, #cde8cd 100%); color: #1c3a2a; padding: 1.5rem; min-height: 100vh; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 15%, #fef9c3 30%, #fce4ec 45%, #e8f5e9 60%, #fff8e1 75%, #eaf9e6 90%, #dcfce7 100%); background-size: 500% 500%; animation: bgShift 10s ease-in-out infinite; color: #1c3a2a; padding: 1.5rem; min-height: 100vh; }
+        @keyframes bgShift { 0%{background-position:0% 50%} 25%{background-position:100% 0%} 50%{background-position:100% 100%} 75%{background-position:0% 100%} 100%{background-position:0% 50%} }
+        .click-ripple { position: fixed; border-radius: 50%; pointer-events: none; z-index: 99999; animation: rippleOut 0.9s ease-out forwards; }
+        .click-ring { position: fixed; border-radius: 50%; border: 2px solid; pointer-events: none; z-index: 99998; animation: ringOut 1.2s ease-out forwards; }
+        .click-spark { position: fixed; width: 4px; height: 4px; border-radius: 50%; pointer-events: none; z-index: 99998; animation: sparkFly 0.7s ease-out forwards; }
+        @keyframes rippleOut { 0%{width:0;height:0;opacity:0.8;transform:translate(-50%,-50%)} 100%{width:160px;height:160px;opacity:0;transform:translate(-50%,-50%)} }
+        @keyframes ringOut { 0%{width:10px;height:10px;opacity:1;transform:translate(-50%,-50%)} 100%{width:100px;height:100px;opacity:0;transform:translate(-50%,-50%)} }
+        @keyframes sparkFly { 0%{opacity:1;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(calc(-50% + var(--sx)), calc(-50% + var(--sy))) scale(0)} }
 
-        /* 密码锁 */
-        .password-lock { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #eaf9e6 0%, #cde8cd 100%); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99999; }
-        .password-card { background: white; border-radius: 2rem; padding: 2.5rem; box-shadow: 0 25px 40px -12px rgba(30,60,20,0.3); width: 90%; max-width: 400px; text-align: center; }
-        .password-title { font-size: 1.8rem; font-weight: 700; color: #2e7d32; margin-bottom: 1.5rem; }
-        .password-input { width: 100%; padding: 1rem 1.2rem; border: 2px solid #d2e8cb; border-radius: 12px; font-size: 1.2rem; margin-bottom: 1rem; text-align: center; }
-        .password-btn { background: #2f6b2f; border: none; color: white; font-weight: 600; padding: 0.8rem 2rem; border-radius: 40px; cursor: pointer; transition: 0.2s; font-size: 1.1rem; width: 100%; }
-        .password-btn:hover { background: #1e4f1e; transform: scale(0.98); }
-        .password-error { color: #e74c3c; margin-bottom: 1rem; font-weight: 500; display: none; }
+        /* ===== 启动特效 ===== */
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(145deg, #f0fdf4 0%, #dcfce7 60%, #fef9c3 100%); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 999999; transition: opacity 1.2s ease, transform 1.2s ease; opacity: 1; transform: scale(1); overflow: hidden; }
+        #splash.hidden { opacity: 0; transform: scale(1.05); pointer-events: none; }
+        #heartCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+        .splash-content { position: relative; z-index: 10; text-align: center; color: #065f46; padding: 20px; animation: floatUp 4s ease-in-out infinite alternate; }
+        @keyframes floatUp { 0%{transform:translateY(0)} 100%{transform:translateY(-12px)} }
+        .splash-title { font-size: clamp(2.4rem, 10vw, 5.0rem); font-weight: 600; color: #047857; letter-spacing: 2px; text-shadow: 0 4px 20px rgba(16,185,129,0.15); }
+        .splash-title span { display: inline-block; animation: wave 2.5s ease-in-out infinite; }
+        @keyframes wave { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(12deg)} }
+        .splash-sub { font-size: clamp(0.9rem, 3vw, 1.4rem); color: #374151; margin-top: 12px; opacity: 0.8; letter-spacing: 4px; font-weight: 300; background: rgba(255,255,255,0.4); backdrop-filter: blur(4px); padding: 6px 24px; border-radius: 40px; display: inline-block; }
+        .splash-btn { margin-top: 44px; padding: 16px 52px; border: 2px solid #34d399; border-radius: 60px; background: rgba(255,255,255,0.4); backdrop-filter: blur(6px); color: #065f46; font-size: 1.2rem; font-weight: 600; letter-spacing: 3px; cursor: pointer; transition: all 0.35s ease; box-shadow: 0 4px 20px rgba(16,185,129,0.15); text-transform: uppercase; }
+        .splash-btn:hover { background: #34d399; color: white; box-shadow: 0 8px 40px rgba(16,185,129,0.35); transform: scale(1.04); border-color: #34d399; }
+        .splash-footer { position: absolute; bottom: 30px; color: #9ca3af; font-size: 0.8rem; letter-spacing: 2px; opacity: 0.6; z-index: 10; background: rgba(255,255,255,0.3); padding: 4px 18px; border-radius: 30px; backdrop-filter: blur(4px); }
+
+        /* ===== 密码页 — 轻盈通透，延续欢迎页风格 ===== */
+        .splash-panel { position: relative; z-index: 10; text-align: center; color: #065f46; padding: 20px; transition: opacity 0.5s ease, transform 0.5s ease; }
+        .splash-pw-title { font-size: clamp(1.2rem, 4vw, 1.6rem); color: #374151; margin-bottom: 28px; opacity: 0.8; letter-spacing: 3px; font-weight: 300; background: rgba(255,255,255,0.35); backdrop-filter: blur(4px); padding: 5px 22px; border-radius: 40px; display: inline-block; }
+        .splash-pw-row { display: flex; align-items: center; justify-content: center; gap: 0; width: 90%; max-width: 380px; margin: 0 auto; background: rgba(255,255,255,0.35); backdrop-filter: blur(6px); border-radius: 60px; border: 1.5px solid rgba(52,211,153,0.3); overflow: hidden; transition: border-color 0.3s; }
+        .splash-pw-row:focus-within { border-color: #34d399; box-shadow: 0 0 20px rgba(52,211,153,0.1); }
+        .splash-pw-input { flex: 1; padding: 0.85rem 1rem; border: none; font-size: 1rem; text-align: center; background: transparent; color: #065f46; outline: none; min-width: 0; }
+        .splash-pw-input::placeholder { color: #6b7280; opacity: 0.5; }
+        .splash-pw-btn { padding: 0.85rem 1.5rem; border: none; background: #34d399; color: white; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: 0.25s; flex-shrink: 0; letter-spacing: 1px; white-space: nowrap; }
+        .splash-pw-btn:hover { background: #059669; }
+        .password-error { color: #dc2626; font-size: 0.8rem; margin-top: 8px; font-weight: 400; display: none; }
         @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
 
         .main-container { max-width: 1400px; margin: 0 auto; background: rgba(255,255,245,0.75); backdrop-filter: blur(3px); border-radius: 2rem; box-shadow: 0 25px 40px -12px rgba(30,60,20,0.3); padding: 1.5rem 2rem; }
@@ -33,8 +56,9 @@
         button { background: #2f6b2f; border: none; color: white; font-weight: 600; padding: 0.5rem 1.4rem; border-radius: 40px; cursor: pointer; transition: 0.2s; }
         button:hover { background: #1e4f1e; transform: scale(0.96); }
         .main-tabs { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-        .main-tab { background: #e0f1db; padding: 0.6rem 1.6rem; border-radius: 40px; font-weight: 600; cursor: pointer; }
-        .main-tab.active { background: #2e7d32; color: white; }
+        .main-tab { background: rgba(255,255,255,0.5); backdrop-filter: blur(6px); padding: 0.6rem 1.6rem; border-radius: 40px; font-weight: 600; cursor: pointer; border: 1px solid rgba(52,211,153,0.15); transition: all 0.3s ease; box-shadow: 0 2px 10px rgba(30,60,20,0.04); }
+        .main-tab:hover { background: rgba(255,255,255,0.7); box-shadow: 0 4px 16px rgba(52,211,153,0.12); transform: translateY(-1px); }
+        .main-tab.active { background: #2e7d32; color: white; border-color: #2e7d32; box-shadow: 0 4px 20px rgba(46,125,50,0.2); }
         .page { display: none; }
         .page.active { display: block; }
 
@@ -137,8 +161,8 @@
             .dishes-grid { grid-template-columns: 1fr; gap: 0.8rem; }
             .dish-card { padding: 1rem; border-radius: 1rem; }
             .dish-name { font-size: 1.1rem; }
-            .password-card { padding: 1.8rem; border-radius: 1.5rem; }
-            .password-title { font-size: 1.4rem; }
+            .splash-pw-row { width: 95%; }
+            .splash-pw-title { font-size: 1.1rem; }
             .list-container { padding: 1rem; border-radius: 1rem; }
             .list-input-area { flex-direction: column; }
             .list-submit-btn { width: 100%; padding: 0.7rem; }
@@ -162,9 +186,9 @@
             }
         }
         @media (max-width: 400px) {
-            .password-card { padding: 1.2rem; }
-            .password-title { font-size: 1.2rem; }
-            .password-input { font-size: 1rem; padding: 0.8rem; }
+            .splash-pw-title { font-size: 1rem; }
+            .splash-pw-input { font-size: 0.9rem; padding: 0.7rem; }
+            .splash-pw-btn { font-size: 0.85rem; padding: 0.7rem 1.2rem; }
             .dish-name { font-size: 1rem; }
             .list-item-text { font-size: 0.9rem; }
             .main-tab { font-size: 0.75rem; padding: 0.4rem 0.7rem; }
@@ -172,17 +196,26 @@
     </style>
 </head>
 <body>
-    <!-- 密码锁 -->
-    <div class="password-lock" id="passwordLock">
-        <div class="password-card">
-            <h2 class="password-title">🔒 共度时光事务所</h2>
-            <div class="password-error" id="passwordError">密码错误，请重试</div>
-            <div style="position: relative; width: 100%;">
-                <input type="password" class="password-input" id="passwordInput" placeholder="请输入访问密码">
-                <span id="togglePassword" style="position:absolute;right:1rem;top:50%;transform:translateY(-80%);cursor:pointer;font-size:1.2rem;color:#2e7d32;">🙈</span>
-            </div>
-            <button class="password-btn" id="passwordSubmit">验证密码</button>
+    <!-- ===== 启动特效 + 密码锁（同屏切换） ===== -->
+    <div id="splash">
+        <canvas id="heartCanvas"></canvas>
+        <!-- 欢迎页 -->
+        <div class="splash-panel" id="splashWelcome">
+            <div class="splash-title"><span>🌟</span> 拾光杂货铺 <span>🌟</span></div>
+            <div class="splash-sub">—— 贩卖瞬间 · 收藏日常 ——</div>
+            <button class="splash-btn" id="enterBtn">🛒 进店逛逛</button>
         </div>
+        <!-- 密码页（初始隐藏） -->
+        <div class="splash-panel" id="splashPassword" style="display:none;">
+            <div class="splash-pw-title">🔒 共度时光事务所</div>
+            <div class="splash-pw-row">
+                <input type="password" class="splash-pw-input" id="passwordInput" placeholder="轻触输入密码">
+                <span id="togglePassword" style="cursor:pointer;font-size:1.1rem;color:#2e7d32;padding:0 0.4rem;">🙈</span>
+                <button class="splash-pw-btn" id="passwordSubmit">进入</button>
+            </div>
+            <div class="password-error" id="passwordError">密码错误，请重试</div>
+        </div>
+        <div class="splash-footer">📮 寄给时光</div>
     </div>
 
     <div id="toast" class="toast-notice"></div>
@@ -387,19 +420,88 @@
     </div>
 
     <script>
+        // ============================================================
+        // 启动特效：粒子动画（爱心 + 星光）
+        // ============================================================
+        (function() {
+            const canvas = document.getElementById('heartCanvas');
+            const ctx = canvas.getContext('2d');
+            let width, height, particles = [];
+            const PARTICLE_COUNT = 120;
+            function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
+            window.addEventListener('resize', resize);
+            resize();
+            const palette = [{h:150,s:70,l:75},{h:340,s:70,l:80},{h:45,s:80,l:75},{h:180,s:50,l:80},{h:270,s:40,l:80},{h:20,s:60,l:80}];
+            class HeartParticle {
+                constructor() { this.reset(); }
+                reset() {
+                    this.x = Math.random()*width; this.y = Math.random()*height; this.size = Math.random()*8+3;
+                    this.speedX = (Math.random()-0.5)*0.4; this.speedY = (Math.random()-0.5)*0.4-0.15;
+                    this.opacity = Math.random()*0.5+0.3; this.life = 1; this.decay = 0.002+Math.random()*0.003;
+                    const c = palette[Math.floor(Math.random()*palette.length)];
+                    this.h = c.h; this.s = c.s; this.l = c.l;
+                }
+                update() {
+                    this.x += this.speedX; this.y += this.speedY; this.life -= this.decay; this.opacity = Math.max(0,this.life*0.6);
+                    if (this.life<=0||this.x<-50||this.x>width+50||this.y<-50||this.y>height+50) { this.reset(); this.life=1; this.opacity=0.6; }
+                }
+                draw(ctx) {
+                    if (this.opacity<=0) return;
+                    ctx.save(); ctx.translate(this.x,this.y); ctx.scale(1+(1-this.life)*0.2,1+(1-this.life)*0.2);
+                    ctx.globalAlpha = this.opacity;
+                    ctx.shadowColor = `hsla(${this.h},80%,70%,0.3)`; ctx.shadowBlur = 15;
+                    const s = this.size*0.5;
+                    ctx.beginPath(); ctx.moveTo(0,s*0.3);
+                    ctx.bezierCurveTo(-s*0.8,-s*0.8,-s*1.6,s*0.3,0,s*1.4);
+                    ctx.bezierCurveTo(s*1.6,s*0.3,s*0.8,-s*0.8,0,s*0.3);
+                    ctx.closePath();
+                    ctx.fillStyle = `hsla(${this.h},${this.s}%,${this.l}%,0.85)`; ctx.fill(); ctx.restore();
+                }
+            }
+            for (let i=0;i<PARTICLE_COUNT;i++) particles.push(new HeartParticle());
+            let dots = [];
+            for (let i=0;i<60;i++) dots.push({x:Math.random()*width,y:Math.random()*height,r:Math.random()*2+1,alpha:Math.random()*0.4+0.1});
+            function drawDots() { dots.forEach(d=>{ d.alpha+=Math.random()*0.02-0.01; d.alpha=Math.max(0.05,Math.min(0.5,d.alpha)); ctx.beginPath(); ctx.arc(d.x,d.y,d.r,0,Math.PI*2); ctx.fillStyle=`rgba(16,185,129,${d.alpha})`; ctx.fill(); }); }
+            function animate() {
+                ctx.clearRect(0,0,width,height); drawDots();
+                particles.forEach(p=>{ p.update(); p.draw(ctx); });
+                requestAnimationFrame(animate);
+            }
+            animate();
+            window.addEventListener('resize',()=>{ dots.forEach(d=>{ d.x=Math.random()*width; d.y=Math.random()*height; }); });
+        })();
+
+        // 点击「开始点餐」→ 面板切换到密码输入
+        document.getElementById('enterBtn').addEventListener('click', function() {
+            const welcome = document.getElementById('splashWelcome');
+            const password = document.getElementById('splashPassword');
+            welcome.style.opacity = '0';
+            welcome.style.transform = 'translateY(-20px)';
+            setTimeout(() => {
+                welcome.style.display = 'none';
+                password.style.display = 'block';
+                password.style.opacity = '0';
+                password.style.transform = 'translateY(20px)';
+                requestAnimationFrame(() => {
+                    password.style.opacity = '1';
+                    password.style.transform = 'translateY(0)';
+                });
+            }, 400);
+        });
+
         // ===== Supabase Auth 密码锁 =====
         const FAMILY_EMAIL = "zhangyiyiyi96@163.com"; // 👈 改成你在 Supabase 创建的用户邮箱
 
         async function verifyPassword() {
             const passwordInput = document.getElementById('passwordInput');
             const passwordError = document.getElementById('passwordError');
-            const passwordLock = document.getElementById('passwordLock');
-            const passwordCard = document.querySelector('.password-card');
+            const passwordCard = document.querySelector('.splash-pw-row');
             const password = passwordInput.value.trim();
             const { data, error } = await supabaseClient.auth.signInWithPassword({ email: FAMILY_EMAIL, password: password });
             if (!error && data.user) {
-                passwordLock.style.display = 'none';
-                sessionStorage.setItem('skipLock', '1');  // 本次浏览器会话内记住登录
+                document.getElementById('splash').classList.add('hidden');
+                setTimeout(() => { document.getElementById('splash').style.display = 'none'; }, 1200);
+                sessionStorage.setItem('skipLock', '1');
                 if (!appInitialized) { init(); appInitialized = true; }
                 showToast('✅ 登录成功，欢迎使用！', 'success');
             } else {
@@ -416,7 +518,7 @@
             if (sessionStorage.getItem('skipLock') === '1') {
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (session) {
-                    document.getElementById('passwordLock').style.display = 'none';
+                    document.getElementById('splash').style.display = 'none';
                     if (!appInitialized) { init(); appInitialized = true; }
                     return;
                 }
@@ -425,11 +527,63 @@
             document.getElementById('passwordInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') verifyPassword(); });
         });
 
+        // 点击特效：涟漪 + 光环 + 粒子
+        document.addEventListener('click', function(e) {
+            const palettes = [
+                ['rgba(52,211,153,0.5)','#34d399'],  // 绿
+                ['rgba(251,191,36,0.5)','#fbbf24'],   // 金
+                ['rgba(244,114,182,0.5)','#f472b6'],   // 粉
+                ['rgba(96,165,250,0.5)','#60a5fa'],    // 蓝
+                ['rgba(167,139,250,0.5)','#a78bfa'],   // 紫
+            ];
+            const [rippleColor, ringColor] = palettes[Math.floor(Math.random() * palettes.length)];
+
+            // 涟漪扩散
+            const ripple = document.createElement('div');
+            ripple.className = 'click-ripple';
+            ripple.style.left = e.clientX + 'px';
+            ripple.style.top = e.clientY + 'px';
+            ripple.style.background = `radial-gradient(circle, ${rippleColor} 0%, transparent 70%)`;
+            document.body.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 900);
+
+            // 光环
+            const ring = document.createElement('div');
+            ring.className = 'click-ring';
+            ring.style.left = e.clientX + 'px';
+            ring.style.top = e.clientY + 'px';
+            ring.style.borderColor = ringColor;
+            document.body.appendChild(ring);
+            setTimeout(() => ring.remove(), 1200);
+
+            // 粒子飞出
+            for (let i = 0; i < 8; i++) {
+                const spark = document.createElement('div');
+                spark.className = 'click-spark';
+                spark.style.left = e.clientX + 'px';
+                spark.style.top = e.clientY + 'px';
+                spark.style.background = ringColor;
+                const angle = (Math.PI * 2 * i) / 8 + Math.random() * 0.5;
+                const dist = 20 + Math.random() * 40;
+                spark.style.setProperty('--sx', Math.cos(angle) * dist + 'px');
+                spark.style.setProperty('--sy', Math.sin(angle) * dist + 'px');
+                spark.style.animationDuration = (0.5 + Math.random() * 0.5) + 's';
+                document.body.appendChild(spark);
+                setTimeout(() => spark.remove(), 700);
+            }
+        });
+
         function logout() {
             supabaseClient.auth.signOut();
             sessionStorage.removeItem('skipLock');
             appInitialized = false;
-            document.getElementById('passwordLock').style.display = 'flex';
+            const splash = document.getElementById('splash');
+            splash.classList.remove('hidden');
+            splash.style.display = 'flex';
+            document.getElementById('splashWelcome').style.display = 'block';
+            document.getElementById('splashWelcome').style.opacity = '1';
+            document.getElementById('splashWelcome').style.transform = '';
+            document.getElementById('splashPassword').style.display = 'none';
             showToast('👋 已退出登录', 'info');
         }
 
@@ -494,6 +648,7 @@
                 const historyPanel = document.getElementById("historyFloat");
                 if (tab.dataset.page === "order") { floatBtn.style.display = "flex"; historyPanel.style.display = "block"; }
                 else { floatBtn.style.display = "none"; historyPanel.style.display = "none"; }
+                sessionStorage.setItem('activeTab', tab.dataset.page);  // 记住当前页
             };
         });
 
@@ -962,6 +1117,18 @@
 
         // ===== 初始化 =====
         async function init() {
+            // 先切到上次打开的页面，再加载数据（避免闪现）
+            const lastTab = sessionStorage.getItem('activeTab');
+            if (lastTab && lastTab !== 'order') {
+                document.querySelectorAll(".main-tab").forEach(t => t.classList.remove("active"));
+                document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+                const targetTab = document.querySelector(`.main-tab[data-page="${lastTab}"]`);
+                const targetPage = document.getElementById(`page-${lastTab}`);
+                if (targetTab) targetTab.classList.add("active");
+                if (targetPage) targetPage.classList.add("active");
+                document.getElementById("floatSubmitBtn").style.display = "none";
+                document.getElementById("historyFloat").style.display = "none";
+            }
             updateDate();
             await loadMenu();
             renderCategories();
