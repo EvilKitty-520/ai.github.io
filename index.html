@@ -123,10 +123,12 @@
         .floating-submit .icon { font-size: 22px; }
         .floating-submit .text { display: none; margin-left: 8px; }
         .floating-submit:hover .text { display: inline; }
-        .history-float { position: fixed; bottom: 1.5rem; right: 1.5rem; width: 320px; background: #ffffffdd; backdrop-filter: blur(12px); border-radius: 1.5rem; box-shadow: 0 12px 28px rgba(0,0,0,0.15); z-index: 1000; margin-bottom: 80px; }
-        .float-header { background: #39873e; color: white; padding: 0.8rem 1rem; border-radius: 1.5rem 1.5rem 0 0; display: flex; justify-content: space-between; cursor: pointer; }
-        .float-content { max-height: 350px; overflow-y: auto; padding: 0.8rem; transition: max-height 0.25s; }
-        .float-content.collapsed { max-height: 0; padding: 0; overflow: hidden; }
+        .history-float { position: fixed; bottom: 1rem; left: 1rem; z-index: 1000; }
+        .history-float.expanded { width: 320px; background: #ffffffdd; backdrop-filter: blur(12px); border-radius: 1.5rem; box-shadow: 0 12px 28px rgba(0,0,0,0.15); }
+        .float-header { background: #39873e; color: white; padding: 0.5rem 1rem; border-radius: 50px; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.85rem; box-shadow: 0 4px 15px rgba(57,135,62,0.3); transition: border-radius 0.25s; }
+        .history-float.expanded .float-header { border-radius: 1.5rem 1.5rem 0 0; }
+        .float-content { max-height: 0; overflow: hidden; transition: max-height 0.3s; background: transparent; }
+        .history-float.expanded .float-content { max-height: 300px; overflow-y: auto; padding: 0.8rem; }
         .record-item-mini { background: #f9fff7; border-radius: 1rem; padding: 0.6rem; margin-bottom: 0.7rem; border-left: 4px solid #6fbc6f; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center; }
         .record-header-mini { font-weight: 700; display: flex; justify-content: space-between; margin-bottom: 0.2rem; }
         .sync-status { font-size: 0.7rem; background: #e9f3e4; border-radius: 20px; padding: 0.2rem 0.6rem; display: inline-flex; align-items: center; gap: 4px; }
@@ -170,9 +172,9 @@
             .list-item-actions { align-self: flex-end; }
             button { min-height: 44px; padding: 0.6rem 1.2rem; }
             .list-item-edit, .list-item-delete, .list-item-top { min-height: 36px; padding: 0.4rem 0.7rem; font-size: 0.75rem; }
-            .history-float { position: fixed; bottom: 0; left: 0; right: 0; width: 100% !important; border-radius: 1.2rem 1.2rem 0 0; margin-bottom: 0; z-index: 1000; }
-            .float-header { border-radius: 1.2rem 1.2rem 0 0; }
-            .float-content { max-height: 250px; }
+            .history-float { bottom: 0.5rem; left: 0.5rem; }
+            .history-float.expanded { width: 94%; right: 3%; left: 3%; border-radius: 1.2rem 1.2rem 0 0; bottom: 0; }
+            .float-header { font-size: 0.8rem; padding: 0.4rem 0.8rem; }
             .floating-submit { bottom: 16px; right: 16px; width: 48px; height: 48px; border-radius: 50%; }
             .cool-modal-card { width: 94%; max-width: none; padding: 1.2rem; border-radius: 1.2rem; }
             .modal-title { font-size: 1.1rem; }
@@ -310,7 +312,7 @@
     </div>
 
     <div class="history-float" id="historyFloat">
-        <div class="float-header" id="floatHeader"><span>📋 当月点单记录</span><span class="toggle-icon" id="toggleFloatIcon">▼</span></div>
+        <div class="float-header" id="floatHeader"><span>📋 当月点单记录</span><span class="toggle-icon" id="toggleFloatIcon">▲</span>  <!-- 默认折叠：点击展开 --></div>
         <div class="float-content" id="floatContent"><div id="floatRecordList">加载中…</div><button id="refreshFloatBtn" style="width:100%;margin-top:0.5rem;">🔄 刷新</button></div>
     </div>
 
@@ -381,7 +383,7 @@
             <h3 class="modal-title" id="dishEditorTitle">🍳 添加菜品</h3>
             <div class="modal-form-group">
                 <label>菜名</label>
-                <input type="text" id="dishEditorName" class="modal-form-input" placeholder="如：水煮鱼">
+                <input type="text" id="dishEditorName" class="modal-form-input" placeholder="如：赤酱琉璃脍">
             </div>
             <div class="modal-form-group">
                 <label>分类</label>
@@ -405,6 +407,11 @@
                     <option value="★★☆☆☆">★★☆☆☆</option>
                     <option value="★☆☆☆☆">★☆☆☆☆</option>
                 </select>
+            </div>
+            <div class="modal-form-group" id="seasonMonthsGroup" style="display:none;">
+                <label>🍃 应季月份（鲜果时光专用）</label>
+                <input type="text" id="dishEditorSeason" class="modal-form-input" placeholder="如：6,7,8 表示 6-8 月应季">
+                <div style="font-size:0.7rem;color:#888;margin-top:0.2rem;">填数字月份，逗号分隔。留空则自动匹配内置应季表</div>
             </div>
             <div class="modal-form-group">
                 <label>🔒 管理密码</label>
@@ -656,13 +663,19 @@
         let menuCache = [];
 
         async function loadMenu() {
-            const { data, error } = await supabaseClient.from("dishes").select("*").order("id");
+            const { data, error } = await supabaseClient.from("dishes").select("*").order("category").order("id");
             if (error) { console.error(error); showToast("菜单加载失败", "error"); return; }
             if (data && data.length > 0) { menuCache = data; }
         }
 
-        function getSeasonalTag(cat, name) {
+        function getSeasonalTag(cat, name, seasonMonths) {
             if (cat !== "鲜果时光") return "";
+            // 优先使用自定义应季月份
+            if (seasonMonths) {
+                const months = seasonMonths.split(/[,，\s]+/).map(Number).filter(n => n >= 1 && n <= 12);
+                if (months.includes(new Date().getMonth() + 1)) return "🍃应季";
+                return "";
+            }
             const m = new Date().getMonth() + 1;
             const seasonalMap = {
                 1: ['草莓','车厘子','橙子','柚子','甘蔗','金桔','沙糖桔'],
@@ -719,7 +732,7 @@
                 const isChecked = selected.get(dish.id) === true;
                 const card = document.createElement('div');
                 card.className = 'dish-card';
-                const seasonTag = getSeasonalTag(dish.category, dish.name);
+                const seasonTag = getSeasonalTag(dish.category, dish.name, dish.season_months);
                 card.innerHTML = `
                     <div class="dish-name">${escapeHtml(dish.name)} ${seasonTag ? `<span class='season-tag'>${seasonTag}</span>` : ''}</div>
                     <div class="rating">${escapeHtml(dish.rating)}</div>
@@ -765,6 +778,8 @@
                 document.getElementById("dishEditorCategory").value = dish.category;
                 document.getElementById("dishEditorPractice").value = dish.practice || "";
                 document.getElementById("dishEditorRating").value = dish.rating;
+                document.getElementById("dishEditorSeason").value = dish.season_months || "";
+                document.getElementById("seasonMonthsGroup").style.display = dish.category === "鲜果时光" ? "block" : "none";
             } else {
                 document.getElementById("dishEditorTitle").innerText = "🍳 添加菜品";
                 document.getElementById("dishEditorId").value = "";
@@ -778,12 +793,18 @@
             document.getElementById("dishEditorModal").style.display = "flex";
         }
 
+        // 鲜果时光时显示应季月份字段
+        document.getElementById("dishEditorCategory").addEventListener("change", function() {
+            document.getElementById("seasonMonthsGroup").style.display = this.value === "鲜果时光" ? "block" : "none";
+        });
+
         document.getElementById("saveDishEditor").onclick = async () => {
             const id = document.getElementById("dishEditorId").value;
             const name = document.getElementById("dishEditorName").value.trim();
             const category = document.getElementById("dishEditorCategory").value;
             const practice = document.getElementById("dishEditorPractice").value.trim();
             const rating = document.getElementById("dishEditorRating").value;
+            const seasonMonths = document.getElementById("dishEditorSeason").value.trim();
             const password = document.getElementById("dishEditorPassword").value.trim();
             const passError = document.getElementById("dishEditorPassError");
 
@@ -799,11 +820,11 @@
             if (dup) { showToast(`「${name}」已存在，请勿重复添加`, "warning"); return; }
 
             if (id) {
-                const { error } = await supabaseClient.from("dishes").update({ name, category, practice, rating }).eq("id", id);
+                const { error } = await supabaseClient.from("dishes").update({ name, category, practice, rating, season_months: seasonMonths }).eq("id", id);
                 if (error) { console.error(error); showToast("修改失败", "error"); return; }
                 showToast("✅ 菜品已更新", "success");
             } else {
-                const { error } = await supabaseClient.from("dishes").insert([{ name, category, practice, rating }]);
+                const { error } = await supabaseClient.from("dishes").insert([{ name, category, practice, rating, season_months: seasonMonths }]);
                 if (error) { console.error(error); showToast("添加失败", "error"); return; }
                 showToast("✅ 新菜品已添加", "success");
             }
@@ -1147,11 +1168,11 @@
                 location.reload();
             };
             dishSearchInput.addEventListener('input', debounce(handleSearchInput, 300));
-            let coll = false;
             document.getElementById("floatHeader").onclick = () => {
-                coll = !coll;
-                const c = document.getElementById("floatContent"), i = document.getElementById("toggleFloatIcon");
-                coll ? (c.classList.add("collapsed"), i.innerText = "▲") : (c.classList.remove("collapsed"), i.innerText = "▼");
+                const panel = document.getElementById("historyFloat");
+                const i = document.getElementById("toggleFloatIcon");
+                const expanded = panel.classList.toggle("expanded");
+                i.innerText = expanded ? "▼" : "▲";
             };
             document.getElementById("addDishBtn").onclick = () => openDishEditor(null);
             document.getElementById('editModal').onclick = (e) => { if (e.target === document.getElementById('editModal')) document.getElementById('editModal').style.display = 'none'; };
